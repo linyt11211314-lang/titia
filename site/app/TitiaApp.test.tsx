@@ -41,6 +41,8 @@ describe("TitiaApp", () => {
     expect(mobileFixes).toContain("@media(max-width:430px)");
     expect(mobileFixes).toContain("env(safe-area-inset-top)");
     expect(mobileFixes).toContain("env(safe-area-inset-bottom)");
+    expect(mobileFixes).toContain(".bottom-nav{bottom:0");
+    expect(mobileFixes).toContain("-webkit-touch-callout:none");
   });
 
   it("shows a real-data overview above every ledger secondary page", async () => {
