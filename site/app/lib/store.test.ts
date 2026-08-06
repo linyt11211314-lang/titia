@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { TitiaStore, emptyData, type Transaction } from "./store";
+import { TitiaStore, emptyData, normalizeAppData, type Transaction } from "./store";
 
 describe("TitiaStore", () => {
   beforeEach(() => indexedDB.deleteDatabase("titia-test"));
@@ -28,5 +28,31 @@ describe("TitiaStore", () => {
     await store.save(emptyData());
     await store.restore(backup);
     expect((await store.load()).shopping[0]?.text).toBe("猫砂");
+  });
+
+  it("migrates V1 into the user-provided category taxonomy", () => {
+    const legacy = { ...emptyData(), version: 1, categories: ["餐饮", "购物"] };
+    delete (legacy as Partial<typeof legacy>).ledgerCategories;
+    delete (legacy as Partial<typeof legacy>).preferences;
+    delete (legacy as Partial<typeof legacy>).backupMeta;
+
+    const migrated = normalizeAppData(legacy);
+
+    expect(migrated.version).toBe(2);
+    const parents = migrated.ledgerCategories.filter((category) => !category.parentId);
+    expect(parents).toHaveLength(12);
+    expect(parents.find((category) => category.name === "收入")?.type).toBe("income");
+    const dining = parents.find((category) => category.name === "餐饮");
+    expect(migrated.ledgerCategories).toContainEqual(expect.objectContaining({ name: "早餐", type: "expense", parentId: dining?.id }));
+    expect(migrated.preferences.sparkFab.opacity).toBe(0.7);
+  });
+
+  it("persists V2 interface preferences", async () => {
+    const store = new TitiaStore("titia-test");
+    const data = emptyData();
+    data.preferences.sparkFab = { x: 42, y: 180, opacity: 0.4 };
+    await store.save(data);
+
+    expect((await store.load()).preferences.sparkFab).toEqual({ x: 42, y: 180, opacity: 0.4 });
   });
 });

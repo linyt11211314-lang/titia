@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from "dexie";
+import { defaultLedgerCategories } from "./category-config";
 
 export type Id = string;
 export type Todo = { id: Id; text: string; done: boolean; createdAt: string };
@@ -15,9 +16,11 @@ export type Budget = { id: Id; category: string; amount: number; month: string }
 export type VaultEntry = { id: Id; title: string; ciphertext: string; iv: string; createdAt: string };
 export type VaultMeta = { salt: string; verifier: string; verifierIv: string } | null;
 export type Spark = { id: Id; tag: string; body: string; date: string };
+export type LedgerCategory = { id: Id; name: string; type: "income" | "expense"; parentId?: Id };
+export type SparkFabPreference = { x: number | null; y: number | null; opacity: number };
 
 export type AppData = {
-  version: 1;
+  version: 2;
   profile: { name: string; createdAt: string };
   todos: Todo[];
   shopping: ShoppingItem[];
@@ -31,6 +34,9 @@ export type AppData = {
   transactions: Transaction[];
   budgets: Budget[];
   categories: string[];
+  ledgerCategories: LedgerCategory[];
+  preferences: { sparkFab: SparkFabPreference };
+  backupMeta: { lastSpreadsheetExportAt: string | null };
   vaultMeta: VaultMeta;
   vault: VaultEntry[];
   sparks: Spark[];
@@ -42,14 +48,43 @@ export const today = () => new Date().toISOString().slice(0, 10);
 export const uid = () => crypto.randomUUID();
 
 export function emptyData(): AppData {
+  const transactionCategories = defaultLedgerCategories.filter((category) => category.parentId).map((category) => category.name);
   return {
-    version: 1,
+    version: 2,
     profile: { name: "", createdAt: today() },
     todos: [], shopping: [], countdowns: [], periods: [], pets: [], petRecords: [],
     diaries: [], relationships: [], transactions: [], budgets: [], vault: [], sparks: [],
     accounts: [{ id: "cash", name: "现金账户", opening: 0, kind: "现金" }],
-    categories: ["餐饮", "购物", "交通", "居住", "娱乐", "健康", "人情关系", "其他"],
+    categories: transactionCategories,
+    ledgerCategories: defaultLedgerCategories.map((category) => ({ ...category })),
+    preferences: { sparkFab: { x: null, y: null, opacity: 0.7 } },
+    backupMeta: { lastSpreadsheetExportAt: null },
     vaultMeta: null,
+  };
+}
+
+export function normalizeAppData(input: unknown): AppData {
+  const defaults = emptyData();
+  if (!input || typeof input !== "object") return defaults;
+  const value = input as Partial<AppData> & { version?: number };
+  const ledgerCategories = Array.isArray(value.ledgerCategories)
+    ? value.ledgerCategories.filter((item): item is LedgerCategory => Boolean(item && typeof item.id === "string" && typeof item.name === "string" && (item.type === "income" || item.type === "expense")))
+    : defaultLedgerCategories.map((category) => ({ ...category }));
+  const savedSpark = value.preferences?.sparkFab;
+  return {
+    ...defaults,
+    ...value,
+    version: 2,
+    categories: defaults.categories,
+    ledgerCategories,
+    preferences: {
+      sparkFab: {
+        x: typeof savedSpark?.x === "number" ? savedSpark.x : null,
+        y: typeof savedSpark?.y === "number" ? savedSpark.y : null,
+        opacity: typeof savedSpark?.opacity === "number" ? Math.min(1, Math.max(0.2, savedSpark.opacity)) : 0.7,
+      },
+    },
+    backupMeta: { lastSpreadsheetExportAt: value.backupMeta?.lastSpreadsheetExportAt ?? null },
   };
 }
 
@@ -62,7 +97,7 @@ export class TitiaStore extends Dexie {
   }
 
   async load(): Promise<AppData> {
-    return (await this.state.get("main"))?.data ?? emptyData();
+    return normalizeAppData((await this.state.get("main"))?.data);
   }
 
   async save(data: AppData): Promise<void> {
@@ -74,10 +109,11 @@ export class TitiaStore extends Dexie {
   }
 
   async restore(text: string): Promise<AppData> {
-    const value = JSON.parse(text) as { app?: string; data?: AppData };
-    if (value.app !== "titia" || value.data?.version !== 1) throw new Error("这不是有效的 Titia 备份文件");
-    await this.save(value.data);
-    return value.data;
+    const value = JSON.parse(text) as { app?: string; data?: unknown };
+    if (value.app !== "titia" || !value.data || typeof value.data !== "object") throw new Error("这不是有效的 Titia 备份文件");
+    const restored = normalizeAppData(value.data);
+    await this.save(restored);
+    return restored;
   }
 
   static balance(transactions: Transaction[], opening = 0): number {
