@@ -68,6 +68,13 @@ describe("TitiaStore", () => {
     expect((await store.load()).userPreferences.floatingButton).toEqual({ x: 42, y: 180, opacity: 0.4 });
   });
 
+  it("upgrades the old seventy-percent default to the V1.2 eighty-percent default", () => {
+    const legacy = emptyData();
+    delete (legacy as Partial<typeof legacy>).userPreferences;
+    legacy.preferences.sparkFab.opacity = 0.7;
+    expect(normalizeAppData(legacy).userPreferences.floatingButton.opacity).toBe(0.8);
+  });
+
   it("normalizes V2 transactions into the V3 shape without losing values", () => {
     const legacy = emptyData();
     legacy.transactions = [{ id: "old", type: "expense", amount: 80, category: "购物", accountId: "cash", date: "2026-08-06", note: "淘宝", source: "ocr", confidence: 0.8, reviewStatus: "confirmed", createdAt: "a", updatedAt: "b" }];

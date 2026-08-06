@@ -77,10 +77,11 @@ export function normalizeAppData(input: unknown): AppData {
     ? value.ledgerCategories.filter((item): item is LedgerCategory => Boolean(item && typeof item.id === "string" && typeof item.name === "string" && (item.type === "income" || item.type === "expense")))
     : defaultLedgerCategories.map((category) => ({ ...category }));
   const savedSpark = value.userPreferences?.floatingButton ?? value.preferences?.sparkFab;
+  const savedOpacity = typeof savedSpark?.opacity === "number" ? savedSpark.opacity : 0.8;
   const floatingButton = {
     x: typeof savedSpark?.x === "number" ? savedSpark.x : null,
     y: typeof savedSpark?.y === "number" ? savedSpark.y : null,
-    opacity: typeof savedSpark?.opacity === "number" ? Math.min(1, Math.max(0.2, savedSpark.opacity)) : 0.8,
+    opacity: Math.abs(savedOpacity - 0.7) < 0.001 ? 0.8 : Math.min(1, Math.max(0.2, savedOpacity)),
   };
   return {
     ...defaults,
