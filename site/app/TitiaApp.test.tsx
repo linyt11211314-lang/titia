@@ -59,11 +59,15 @@ describe("TitiaApp", () => {
     expect(await screen.findByRole("button", { name: "灵光一闪" })).toHaveStyle({ opacity: "0.8" });
   });
 
-  it("exposes Spark history and interactive relationship boards under time", async () => {
+  it("keeps Spark out of the Time sidebar and opens it fullscreen from the FAB", async () => {
     const user = userEvent.setup();
     render(<TitiaApp />);
     await user.click(await screen.findByRole("button", { name: "时光" }));
-    expect(screen.getByRole("button", { name: /✨.*灵光一闪/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /✨.*灵光一闪/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "灵光一闪" }));
+    expect(screen.getByRole("dialog", { name: "灵光一闪" })).toHaveClass("spark-fullscreen");
+    expect(screen.queryByRole("navigation", { name: "主导航" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "返回原页面" }));
     await user.click(screen.getByRole("button", { name: /💙.*关系/ }));
     expect(screen.getByRole("button", { name: "💞 感动瞬间" })).toHaveClass("active");
     await user.click(screen.getByRole("button", { name: "🔎 矛盾复盘" }));
