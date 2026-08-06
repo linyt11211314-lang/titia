@@ -1,15 +1,15 @@
 {
-  "id": "/",
+  "id": "./",
   "name": "Titia 时序",
   "short_name": "Titia",
   "description": "温柔、私密、离线优先的个人生活操作系统",
-  "start_url": "/?source=pwa",
-  "scope": "/",
+  "start_url": "./?source=pwa",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#edf8fc",
   "theme_color": "#edf8fc",
   "orientation": "portrait-primary",
   "icons": [
-    { "src": "/icon.png", "sizes": "1536x1024", "type": "image/png", "purpose": "any" }
+    { "src": "./icon.png", "sizes": "1536x1024", "type": "image/png", "purpose": "any" }
   ]
 }
