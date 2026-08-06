@@ -37,5 +37,6 @@ dev-server*.log
 
 /dist/
 /.wrangler/
+*.tsbuildinfo
 /outputs/
 /work/
