@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMigrationUrl, decodeMigrationFragment, encodeMigrationBundle, mergeMigrationBundle, migrationCounts, type MigrationBundle } from "./migration";
+import { buildMigrationUrl, canEncodeMigrationQr, decodeMigrationFragment, encodeMigrationBundle, mergeMigrationBundle, migrationCounts, type MigrationBundle } from "./migration";
 import { emptyData } from "./store";
 
 const bundle = (): MigrationBundle => ({
@@ -24,14 +24,20 @@ describe("encrypted migration bundle", () => {
     const first = await encodeMigrationBundle(bundle());
     const second = await encodeMigrationBundle(bundle());
     expect(first).not.toBe(second);
-    const tail = first.at(-1) === "A" ? "B" : "A";
-    await expect(decodeMigrationFragment(first.slice(0, -1) + tail)).rejects.toThrow();
+    const index = "titia-v1.".length + 60;
+    const changed = first[index] === "A" ? "B" : "A";
+    await expect(decodeMigrationFragment(first.slice(0, index) + changed + first.slice(index + 1))).rejects.toThrow();
   });
 
   it("builds a fragment-only import URL", () => {
     const url = buildMigrationUrl("titia-v1.secret", { origin: "https://example.com", pathname: "/titia/" });
     expect(url).toBe("https://example.com/titia/import#titia-v1.secret");
     expect(url).not.toContain("?data=");
+  });
+
+  it("refuses QR output when a complete link exceeds reliable byte capacity", () => {
+    expect(canEncodeMigrationQr("https://example.com/import#short")).toBe(true);
+    expect(canEncodeMigrationQr(`https://example.com/import#${"x".repeat(3000)}`)).toBe(false);
   });
 
   it("counts every preview category including images", () => {

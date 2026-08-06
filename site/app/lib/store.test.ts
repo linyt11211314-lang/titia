@@ -52,16 +52,20 @@ describe("TitiaStore", () => {
     expect(parents.find((category) => category.name === "收入")?.type).toBe("income");
     const dining = parents.find((category) => category.name === "餐饮");
     expect(migrated.ledgerCategories).toContainEqual(expect.objectContaining({ name: "早餐", type: "expense", parentId: dining?.id }));
-    expect(migrated.preferences.sparkFab.opacity).toBe(0.7);
+    expect(migrated.preferences.sparkFab.opacity).toBe(0.8);
+    expect(migrated.userPreferences.floatingButton.opacity).toBe(0.8);
   });
 
   it("persists V2 interface preferences", async () => {
     const store = new TitiaStore("titia-test");
     const data = emptyData();
     data.preferences.sparkFab = { x: 42, y: 180, opacity: 0.4 };
-    await store.save(data);
+    const legacyV2 = { ...data } as Partial<typeof data>;
+    delete legacyV2.userPreferences;
+    await store.save(legacyV2 as typeof data);
 
     expect((await store.load()).preferences.sparkFab).toEqual({ x: 42, y: 180, opacity: 0.4 });
+    expect((await store.load()).userPreferences.floatingButton).toEqual({ x: 42, y: 180, opacity: 0.4 });
   });
 
   it("normalizes V2 transactions into the V3 shape without losing values", () => {

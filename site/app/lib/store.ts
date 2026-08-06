@@ -40,6 +40,7 @@ export type AppData = {
   categories: string[];
   ledgerCategories: LedgerCategory[];
   preferences: { sparkFab: SparkFabPreference };
+  userPreferences: { floatingButton: SparkFabPreference };
   backupMeta: { lastSpreadsheetExportAt: string | null };
   vaultMeta: VaultMeta;
   vault: VaultEntry[];
@@ -61,7 +62,8 @@ export function emptyData(): AppData {
     accounts: [{ id: "cash", name: "现金账户", opening: 0, kind: "现金" }],
     categories: transactionCategories,
     ledgerCategories: defaultLedgerCategories.map((category) => ({ ...category })),
-    preferences: { sparkFab: { x: null, y: null, opacity: 0.7 } },
+    preferences: { sparkFab: { x: null, y: null, opacity: 0.8 } },
+    userPreferences: { floatingButton: { x: null, y: null, opacity: 0.8 } },
     backupMeta: { lastSpreadsheetExportAt: null },
     vaultMeta: null,
   };
@@ -74,7 +76,12 @@ export function normalizeAppData(input: unknown): AppData {
   const ledgerCategories = Array.isArray(value.ledgerCategories)
     ? value.ledgerCategories.filter((item): item is LedgerCategory => Boolean(item && typeof item.id === "string" && typeof item.name === "string" && (item.type === "income" || item.type === "expense")))
     : defaultLedgerCategories.map((category) => ({ ...category }));
-  const savedSpark = value.preferences?.sparkFab;
+  const savedSpark = value.userPreferences?.floatingButton ?? value.preferences?.sparkFab;
+  const floatingButton = {
+    x: typeof savedSpark?.x === "number" ? savedSpark.x : null,
+    y: typeof savedSpark?.y === "number" ? savedSpark.y : null,
+    opacity: typeof savedSpark?.opacity === "number" ? Math.min(1, Math.max(0.2, savedSpark.opacity)) : 0.8,
+  };
   return {
     ...defaults,
     ...value,
@@ -88,12 +95,9 @@ export function normalizeAppData(input: unknown): AppData {
     categories: defaults.categories,
     ledgerCategories,
     preferences: {
-      sparkFab: {
-        x: typeof savedSpark?.x === "number" ? savedSpark.x : null,
-        y: typeof savedSpark?.y === "number" ? savedSpark.y : null,
-        opacity: typeof savedSpark?.opacity === "number" ? Math.min(1, Math.max(0.2, savedSpark.opacity)) : 0.7,
-      },
+      sparkFab: floatingButton,
     },
+    userPreferences: { floatingButton },
     backupMeta: { lastSpreadsheetExportAt: value.backupMeta?.lastSpreadsheetExportAt ?? null },
   };
 }
@@ -119,7 +123,8 @@ export class TitiaStore extends Dexie {
   }
 
   async export(): Promise<string> {
-    return JSON.stringify({ app: "titia", exportedAt: new Date().toISOString(), data: await this.load() });
+    const bundle = await this.createBundle();
+    return JSON.stringify({ app: "titia", exportedAt: bundle.createdAt, data: bundle.data, attachments: bundle.attachments });
   }
 
   async restore(text: string): Promise<AppData> {
@@ -203,7 +208,11 @@ export class TitiaStore extends Dexie {
   }
 }
 
-const blobToBase64 = (blob: Blob) => new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onerror = () => reject(reader.error); reader.onload = () => resolve(String(reader.result).split(",")[1] ?? ""); reader.readAsDataURL(blob); });
+const bytesToBase64 = (bytes: Uint8Array) => { let binary = ""; for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000)); return btoa(binary); };
+const blobToBase64 = async (blob: Blob) => {
+  if (typeof blob.arrayBuffer === "function") return bytesToBase64(new Uint8Array(await blob.arrayBuffer()));
+  return new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onerror = () => reject(reader.error); reader.onload = () => resolve(String(reader.result).split(",")[1] ?? ""); reader.readAsDataURL(blob); });
+};
 const base64ToBlob = (value: string, mime: string) => new Blob([Uint8Array.from(atob(value), (char) => char.charCodeAt(0))], { type: mime });
 
 const bytes = (value: string) => Uint8Array.from(atob(value), (c) => c.charCodeAt(0));

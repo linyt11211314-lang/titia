@@ -55,6 +55,8 @@ export function buildMigrationUrl(encoded: string, location: Pick<Location, "ori
   return `${location.origin}${root}import#${encoded}`;
 }
 
+export const canEncodeMigrationQr = (url: string) => encoder.encode(url).byteLength <= 2200;
+
 export function migrationCounts(bundle: MigrationBundle): MigrationCounts {
   const data = bundle.data;
   const images = bundle.attachments.length + data.diaries.filter((item) => item.image).length + data.petRecords.filter((item) => item.image).length;

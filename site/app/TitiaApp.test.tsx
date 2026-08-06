@@ -54,8 +54,8 @@ describe("TitiaApp", () => {
     expect(screen.getByRole("button", { name: "收入分类" })).toBeInTheDocument();
   });
 
-  it("starts the spark button at seventy percent opacity", async () => {
+  it("starts the spark button at eighty percent opacity", async () => {
     render(<TitiaApp />);
-    expect(await screen.findByRole("button", { name: "灵光一闪" })).toHaveStyle({ opacity: "0.7" });
+    expect(await screen.findByRole("button", { name: "灵光一闪" })).toHaveStyle({ opacity: "0.8" });
   });
 });
