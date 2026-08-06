@@ -10,12 +10,17 @@ export function scoreAmountCandidates(text: string): AmountScoreResult {
   for (const line of text.split(/\r?\n/).map((value) => value.trim()).filter(Boolean)) {
     const matches = [...line.matchAll(/(?:¥|￥)?\s*(-?\d[\d,]*(?:\.\d{1,2})?)\s*(?:元)?/g)];
     for (const match of matches) {
+      const before = line.slice(Math.max(0, (match.index ?? 0) - 16), match.index);
+      const markedCurrency = /[¥￥]/.test(match[0]) || /元/.test(match[0]);
+      const nearbyLabel = [...preferred, ...secondary, ...excludedLabels].find((value) => before.includes(value));
+      if (!markedCurrency && !nearbyLabel) continue;
       const amount = Math.abs(Number(match[1].replace(/,/g, "")));
       if (!Number.isFinite(amount) || amount === 0) continue;
-      const excluded = excludedLabels.some((label) => line.includes(label));
-      const high = preferred.find((label) => line.includes(label));
-      const medium = secondary.find((label) => line.includes(label));
-      const label = high ?? medium ?? excludedLabels.find((value) => line.includes(value)) ?? "未知金额";
+      const excludedLabel = excludedLabels.find((label) => before.includes(label));
+      const excluded = Boolean(excludedLabel);
+      const high = preferred.find((label) => before.includes(label));
+      const medium = secondary.find((label) => before.includes(label));
+      const label = high ?? medium ?? excludedLabel ?? "未知金额";
       const score = excluded ? 5 : high ? 100 : medium ? 65 : 35;
       collected.push({ amount, score, confidence: score / 100, label, excluded, evidence: line });
     }
