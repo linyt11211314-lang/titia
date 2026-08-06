@@ -21,6 +21,13 @@ describe("TitiaStore", () => {
     expect(TitiaStore.balance(transactions)).toBe(65);
   });
 
+  it("does not include candidate transactions in an account balance", () => {
+    const transactions: Transaction[] = [
+      { id: "candidate", type: "expense", amount: 35.8, category: "餐饮", accountId: "cash", date: "2026-08-06", note: "", source: "ocr", reviewStatus: "candidate", createdAt: "", updatedAt: "" },
+    ];
+    expect(TitiaStore.balance(transactions, 100)).toBe(100);
+  });
+
   it("exports and restores a versioned backup", async () => {
     const store = new TitiaStore("titia-test");
     await store.save({ ...emptyData(), shopping: [{ id: "s1", text: "猫砂", bought: false, createdAt: "" }] });
@@ -38,7 +45,7 @@ describe("TitiaStore", () => {
 
     const migrated = normalizeAppData(legacy);
 
-    expect(migrated.version).toBe(2);
+    expect(migrated.version).toBe(3);
     const parents = migrated.ledgerCategories.filter((category) => !category.parentId);
     expect(parents).toHaveLength(12);
     expect(parents.find((category) => category.name === "收入")?.type).toBe("income");
@@ -54,5 +61,13 @@ describe("TitiaStore", () => {
     await store.save(data);
 
     expect((await store.load()).preferences.sparkFab).toEqual({ x: 42, y: 180, opacity: 0.4 });
+  });
+
+  it("normalizes V2 transactions into the V3 shape without losing values", () => {
+    const legacy = emptyData();
+    legacy.transactions = [{ id: "old", type: "expense", amount: 80, category: "购物", accountId: "cash", date: "2026-08-06", note: "淘宝", source: "ocr", confidence: 0.8, reviewStatus: "confirmed", createdAt: "a", updatedAt: "b" }];
+    const migrated = normalizeAppData({ ...legacy, version: 2 });
+    expect(migrated.version).toBe(3);
+    expect(migrated.transactions[0]).toEqual(expect.objectContaining({ id: "old", amount: 80, merchant: "", subcategory: "", sourceProvider: "" }));
   });
 });

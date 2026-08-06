@@ -11,7 +11,9 @@ export type PetRecord = { id: Id; petId: Id; kind: "moment" | "weight" | "health
 export type Diary = { id: Id; title: string; body: string; mood: string; date: string; image?: string };
 export type Relationship = { id: Id; type: "moment" | "review"; person: string; title: string; body: string; reflection: string; date: string };
 export type Account = { id: Id; name: string; opening: number; kind: string };
-export type Transaction = { id: Id; type: "income" | "expense"; amount: number; category: string; accountId: Id; date: string; note: string; source: "manual" | "ocr" | "notification" | "import"; externalId?: string; dedupeKey?: string; rawPayload?: string; confidence?: number; reviewStatus: "candidate" | "confirmed"; createdAt: string; updatedAt: string };
+export type DuplicateCheck = { possible: boolean; similarity: number; matchedTransactionId?: Id };
+export type Transaction = { id: Id; type: "income" | "expense"; amount: number; category: string; subcategory?: string; merchant?: string; accountId: Id; date: string; note: string; source: "manual" | "ocr" | "notification" | "import"; sourceProvider?: string; externalId?: string; dedupeKey?: string; rawPayload?: string; confidence?: number; imageId?: Id; duplicateCheck?: DuplicateCheck; reviewStatus: "candidate" | "confirmed"; createdAt: string; updatedAt: string };
+export type TransactionAttachment = { id: Id; transactionId: Id; image: Blob; createdAt: string };
 export type Budget = { id: Id; category: string; amount: number; month: string };
 export type VaultEntry = { id: Id; title: string; ciphertext: string; iv: string; createdAt: string };
 export type VaultMeta = { salt: string; verifier: string; verifierIv: string } | null;
@@ -20,7 +22,7 @@ export type LedgerCategory = { id: Id; name: string; type: "income" | "expense";
 export type SparkFabPreference = { x: number | null; y: number | null; opacity: number };
 
 export type AppData = {
-  version: 2;
+  version: 3;
   profile: { name: string; createdAt: string };
   todos: Todo[];
   shopping: ShoppingItem[];
@@ -50,7 +52,7 @@ export const uid = () => crypto.randomUUID();
 export function emptyData(): AppData {
   const transactionCategories = defaultLedgerCategories.filter((category) => category.parentId).map((category) => category.name);
   return {
-    version: 2,
+    version: 3,
     profile: { name: "", createdAt: today() },
     todos: [], shopping: [], countdowns: [], periods: [], pets: [], petRecords: [],
     diaries: [], relationships: [], transactions: [], budgets: [], vault: [], sparks: [],
@@ -74,7 +76,13 @@ export function normalizeAppData(input: unknown): AppData {
   return {
     ...defaults,
     ...value,
-    version: 2,
+    version: 3,
+    transactions: Array.isArray(value.transactions) ? value.transactions.map((transaction) => ({
+      ...transaction,
+      subcategory: transaction.subcategory ?? "",
+      merchant: transaction.merchant ?? "",
+      sourceProvider: transaction.sourceProvider ?? "",
+    })) : [],
     categories: defaults.categories,
     ledgerCategories,
     preferences: {
@@ -90,10 +98,12 @@ export function normalizeAppData(input: unknown): AppData {
 
 export class TitiaStore extends Dexie {
   state!: EntityTable<StateRow, "id">;
+  transactionAttachments!: EntityTable<TransactionAttachment, "id">;
 
   constructor(name = "titia-time-pwa") {
     super(name);
     this.version(1).stores({ state: "id,updatedAt" });
+    this.version(2).stores({ state: "id,updatedAt", transactionAttachments: "id,transactionId,createdAt" });
   }
 
   async load(): Promise<AppData> {
@@ -114,6 +124,28 @@ export class TitiaStore extends Dexie {
     const restored = normalizeAppData(value.data);
     await this.save(restored);
     return restored;
+  }
+
+  async putAttachment(attachment: TransactionAttachment): Promise<void> {
+    await this.transactionAttachments.put(attachment);
+  }
+
+  async getAttachmentByTransaction(transactionId: Id): Promise<TransactionAttachment | undefined> {
+    return this.transactionAttachments.where("transactionId").equals(transactionId).first();
+  }
+
+  async deleteAttachmentByTransaction(transactionId: Id): Promise<void> {
+    await this.transactionAttachments.where("transactionId").equals(transactionId).delete();
+  }
+
+  async deleteTransactionWithAttachment(transactionId: Id): Promise<AppData> {
+    return this.transaction("rw", this.state, this.transactionAttachments, async () => {
+      const data = await this.load();
+      const updated = { ...data, transactions: data.transactions.filter((transaction) => transaction.id !== transactionId) };
+      await this.save(updated);
+      await this.deleteAttachmentByTransaction(transactionId);
+      return updated;
+    });
   }
 
   static balance(transactions: Transaction[], opening = 0): number {
