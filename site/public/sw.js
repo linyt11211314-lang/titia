@@ -1,4 +1,4 @@
-const CACHE = "titia-shell-v4";
+const CACHE = "titia-shell-v5";
 const scopeUrl = new URL(self.registration.scope);
 const scoped = (path = "") => new URL(path, scopeUrl).pathname;
 const SHELL = [scoped(), scoped("manifest.webmanifest"), scoped("icon.png")];

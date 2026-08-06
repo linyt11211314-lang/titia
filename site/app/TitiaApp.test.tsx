@@ -58,4 +58,26 @@ describe("TitiaApp", () => {
     render(<TitiaApp />);
     expect(await screen.findByRole("button", { name: "灵光一闪" })).toHaveStyle({ opacity: "0.8" });
   });
+
+  it("exposes Spark history and interactive relationship boards under time", async () => {
+    const user = userEvent.setup();
+    render(<TitiaApp />);
+    await user.click(await screen.findByRole("button", { name: "时光" }));
+    expect(screen.getByRole("button", { name: /✨.*灵光一闪/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /💙.*关系/ }));
+    expect(screen.getByRole("button", { name: "💞 感动瞬间" })).toHaveClass("active");
+    await user.click(screen.getByRole("button", { name: "🔎 矛盾复盘" }));
+    expect(screen.getByRole("button", { name: "🔎 矛盾复盘" })).toHaveClass("active");
+  });
+
+  it("opens an accessible vault password sheet", async () => {
+    const user = userEvent.setup();
+    render(<TitiaApp />);
+    await user.click(await screen.findByRole("button", { name: "小窝" }));
+    await user.click(screen.getByRole("button", { name: /密码箱/ }));
+    await user.click(screen.getByRole("button", { name: "设置主密码" }));
+    expect(screen.getByRole("heading", { name: "设置主密码" })).toBeInTheDocument();
+    expect(screen.getByLabelText("请输入密码")).toHaveAttribute("type", "password");
+    expect(screen.getByLabelText("确认密码")).toBeInTheDocument();
+  });
 });

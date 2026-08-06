@@ -1,6 +1,6 @@
 import { normalizeAppData, type AppData } from "./store";
 
-export type MigrationAttachment = { id: string; transactionId: string; mime: string; data: string; createdAt: string };
+export type MigrationAttachment = { id: string; transactionId?: string; sparkNoteId?: string; kind?: "transaction" | "spark"; mime: string; data: string; createdAt: string };
 export type MigrationBundle = { version: 1; createdAt: string; data: AppData; attachments: MigrationAttachment[] };
 export type MigrationCounts = { diaries: number; sparks: number; relationships: number; petRecords: number; todos: number; shopping: number; transactions: number; images: number; total: number };
 export type MergeResult = { bundle: MigrationBundle; added: number; skipped: number };
@@ -60,11 +60,11 @@ export const canEncodeMigrationQr = (url: string) => encoder.encode(url).byteLen
 export function migrationCounts(bundle: MigrationBundle): MigrationCounts {
   const data = bundle.data;
   const images = bundle.attachments.length + data.diaries.filter((item) => item.image).length + data.petRecords.filter((item) => item.image).length;
-  const result = { diaries: data.diaries.length, sparks: data.sparks.length, relationships: data.relationships.length, petRecords: data.petRecords.length, todos: data.todos.length, shopping: data.shopping.length, transactions: data.transactions.length, images };
+  const result = { diaries: data.diaries.length, sparks: data.sparkNotes.length || data.sparks.length, relationships: data.relationships.length, petRecords: data.petRecords.length, todos: data.todos.length, shopping: data.shopping.length, transactions: data.transactions.length, images };
   return { ...result, total: Object.values(result).reduce((sum, count) => sum + count, 0) };
 }
 
-const arrayKeys: (keyof AppData)[] = ["todos", "shopping", "countdowns", "periods", "pets", "petRecords", "diaries", "relationships", "accounts", "transactions", "budgets", "ledgerCategories", "vault", "sparks"];
+const arrayKeys: (keyof AppData)[] = ["todos", "shopping", "countdowns", "periods", "pets", "petRecords", "diaries", "relationships", "accounts", "transactions", "budgets", "ledgerCategories", "vault", "sparks", "sparkNotes"];
 export function mergeMigrationBundle(current: MigrationBundle, incoming: MigrationBundle): MergeResult {
   const data = { ...current.data } as AppData;
   let added = 0; let skipped = 0;

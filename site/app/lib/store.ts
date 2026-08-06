@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from "dexie";
 import { defaultLedgerCategories } from "./category-config";
 import { mergeMigrationBundle, migrationCounts, type MergeResult, type MigrationBundle, type MigrationCounts } from "./migration";
+import { migrateLegacySparks } from "./sparkNotes";
 
 export type Id = string;
 export type Todo = { id: Id; text: string; done: boolean; createdAt: string };
@@ -20,6 +21,8 @@ export type Budget = { id: Id; category: string; amount: number; month: string }
 export type VaultEntry = { id: Id; title: string; ciphertext: string; iv: string; createdAt: string };
 export type VaultMeta = { salt: string; verifier: string; verifierIv: string } | null;
 export type Spark = { id: Id; tag: string; body: string; date: string };
+export type SparkNote = { id: Id; title: string; content: string; tag: string; images: Id[]; createdAt: string; updatedAt: string };
+export type SparkMedia = { id: Id; sparkNoteId: Id; image: Blob; createdAt: string };
 export type LedgerCategory = { id: Id; name: string; type: "income" | "expense"; parentId?: Id };
 export type SparkFabPreference = { x: number | null; y: number | null; opacity: number };
 
@@ -45,6 +48,7 @@ export type AppData = {
   vaultMeta: VaultMeta;
   vault: VaultEntry[];
   sparks: Spark[];
+  sparkNotes: SparkNote[];
 };
 
 type StateRow = { id: "main"; data: AppData; updatedAt: string };
@@ -58,7 +62,7 @@ export function emptyData(): AppData {
     version: 3,
     profile: { name: "", createdAt: today() },
     todos: [], shopping: [], countdowns: [], periods: [], pets: [], petRecords: [],
-    diaries: [], relationships: [], transactions: [], budgets: [], vault: [], sparks: [],
+    diaries: [], relationships: [], transactions: [], budgets: [], vault: [], sparks: [], sparkNotes: [],
     accounts: [{ id: "cash", name: "现金账户", opening: 0, kind: "现金" }],
     categories: transactionCategories,
     ledgerCategories: defaultLedgerCategories.map((category) => ({ ...category })),
@@ -83,6 +87,9 @@ export function normalizeAppData(input: unknown): AppData {
     y: typeof savedSpark?.y === "number" ? savedSpark.y : null,
     opacity: Math.abs(savedOpacity - 0.7) < 0.001 ? 0.8 : Math.min(1, Math.max(0.2, savedOpacity)),
   };
+  const sparkNotes = Array.isArray(value.sparkNotes) && value.sparkNotes.length
+    ? value.sparkNotes
+    : migrateLegacySparks(Array.isArray(value.sparks) ? value.sparks : []);
   return {
     ...defaults,
     ...value,
@@ -93,8 +100,9 @@ export function normalizeAppData(input: unknown): AppData {
       merchant: transaction.merchant ?? "",
       sourceProvider: transaction.sourceProvider ?? "",
     })) : [],
-    categories: defaults.categories,
     ledgerCategories,
+    sparkNotes,
+    categories: Array.isArray(value.categories) && value.categories.length ? value.categories : ledgerCategories.filter((item) => item.parentId).map((item) => item.name),
     preferences: {
       sparkFab: floatingButton,
     },
@@ -107,12 +115,14 @@ export class TitiaStore extends Dexie {
   state!: EntityTable<StateRow, "id">;
   transactionAttachments!: EntityTable<TransactionAttachment, "id">;
   restoreSnapshots!: EntityTable<RestoreSnapshot, "id">;
+  sparkMedia!: EntityTable<SparkMedia, "id">;
 
   constructor(name = "titia-time-pwa") {
     super(name);
     this.version(1).stores({ state: "id,updatedAt" });
     this.version(2).stores({ state: "id,updatedAt", transactionAttachments: "id,transactionId,createdAt" });
     this.version(3).stores({ state: "id,updatedAt", transactionAttachments: "id,transactionId,createdAt", restoreSnapshots: "id,createdAt,reason" });
+    this.version(4).stores({ state: "id,updatedAt", transactionAttachments: "id,transactionId,createdAt", restoreSnapshots: "id,createdAt,reason", sparkMedia: "id,sparkNoteId,createdAt" });
   }
 
   async load(): Promise<AppData> {
@@ -158,9 +168,14 @@ export class TitiaStore extends Dexie {
     });
   }
 
+  async putSparkMedia(item: SparkMedia): Promise<void> { await this.sparkMedia.put(item); }
+  async getSparkMedia(sparkNoteId: Id): Promise<SparkMedia[]> { return this.sparkMedia.where("sparkNoteId").equals(sparkNoteId).toArray(); }
+  async deleteSparkMedia(sparkNoteId: Id): Promise<void> { await this.sparkMedia.where("sparkNoteId").equals(sparkNoteId).delete(); }
+
   async createBundle(): Promise<MigrationBundle> {
     const attachments = await this.transactionAttachments.toArray();
-    return { version: 1, createdAt: new Date().toISOString(), data: await this.load(), attachments: await Promise.all(attachments.map(async (item) => ({ id: item.id, transactionId: item.transactionId, mime: item.image.type || "application/octet-stream", data: await blobToBase64(item.image), createdAt: item.createdAt }))) };
+    const sparkMedia = await this.sparkMedia.toArray();
+    return { version: 1, createdAt: new Date().toISOString(), data: await this.load(), attachments: await Promise.all([...attachments.map(async (item) => ({ id: item.id, kind: "transaction" as const, transactionId: item.transactionId, mime: item.image.type || "application/octet-stream", data: await blobToBase64(item.image), createdAt: item.createdAt })), ...sparkMedia.map(async (item) => ({ id: item.id, kind: "spark" as const, sparkNoteId: item.sparkNoteId, mime: item.image.type || "application/octet-stream", data: await blobToBase64(item.image), createdAt: item.createdAt }))]) };
   }
 
   async createRestoreSnapshot(label: string, reason: RestoreSnapshot["reason"] = "before-import"): Promise<RestoreSnapshot> {
@@ -180,10 +195,14 @@ export class TitiaStore extends Dexie {
     const snapshot = await this.restoreSnapshots.get(id);
     if (!snapshot) throw new Error("恢复记录不存在");
     const bundle = JSON.parse(snapshot.payload) as MigrationBundle;
-    return this.transaction("rw", this.state, this.transactionAttachments, async () => {
+    return this.transaction("rw", this.state, this.transactionAttachments, this.sparkMedia, async () => {
       await this.save(normalizeAppData(bundle.data));
       await this.transactionAttachments.clear();
-      if (bundle.attachments.length) await this.transactionAttachments.bulkPut(bundle.attachments.map((item) => ({ id: item.id, transactionId: item.transactionId, image: base64ToBlob(item.data, item.mime), createdAt: item.createdAt })));
+      await this.sparkMedia.clear();
+      const transactionMedia=bundle.attachments.filter((item)=>item.kind!=="spark"&&item.transactionId);
+      const sparks=bundle.attachments.filter((item)=>item.kind==="spark"&&item.sparkNoteId);
+      if (transactionMedia.length) await this.transactionAttachments.bulkPut(transactionMedia.map((item) => ({ id: item.id, transactionId: item.transactionId!, image: base64ToBlob(item.data, item.mime), createdAt: item.createdAt })));
+      if (sparks.length) await this.sparkMedia.bulkPut(sparks.map((item)=>({id:item.id,sparkNoteId:item.sparkNoteId!,image:base64ToBlob(item.data,item.mime),createdAt:item.createdAt})));
       return this.load();
     });
   }
@@ -192,12 +211,15 @@ export class TitiaStore extends Dexie {
     const current = await this.createBundle();
     const snapshot: RestoreSnapshot = { id: uid(), createdAt: new Date().toISOString(), reason: "before-import", label: snapshotLabel, payload: JSON.stringify(current), counts: migrationCounts(current) };
     const result = mergeMigrationBundle(current, incoming);
-    return this.transaction("rw", this.state, this.transactionAttachments, this.restoreSnapshots, async () => {
+    return this.transaction("rw", this.state, this.transactionAttachments, this.sparkMedia, this.restoreSnapshots, async () => {
       await this.restoreSnapshots.put(snapshot);
       await this.save(result.bundle.data);
       const existing = new Set((await this.transactionAttachments.toArray()).map((item) => item.id));
-      const fresh = result.bundle.attachments.filter((item) => !existing.has(item.id));
-      if (fresh.length) await this.transactionAttachments.bulkPut(fresh.map((item) => ({ id: item.id, transactionId: item.transactionId, image: base64ToBlob(item.data, item.mime), createdAt: item.createdAt })));
+      const sparkExisting = new Set((await this.sparkMedia.toArray()).map((item)=>item.id));
+      const fresh = result.bundle.attachments.filter((item) => item.kind!=="spark"&&item.transactionId&&!existing.has(item.id));
+      const freshSpark=result.bundle.attachments.filter((item)=>item.kind==="spark"&&item.sparkNoteId&&!sparkExisting.has(item.id));
+      if (fresh.length) await this.transactionAttachments.bulkPut(fresh.map((item) => ({ id: item.id, transactionId: item.transactionId!, image: base64ToBlob(item.data, item.mime), createdAt: item.createdAt })));
+      if(freshSpark.length)await this.sparkMedia.bulkPut(freshSpark.map((item)=>({id:item.id,sparkNoteId:item.sparkNoteId!,image:base64ToBlob(item.data,item.mime),createdAt:item.createdAt})));
       const stale = await this.restoreSnapshots.orderBy("createdAt").reverse().offset(10).toArray();
       if (stale.length) await this.restoreSnapshots.bulkDelete(stale.map((item) => item.id));
       return result;

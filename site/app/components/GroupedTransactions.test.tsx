@@ -33,4 +33,15 @@ describe("GroupedTransactions", () => {
     expect(onOpenAttachment).toHaveBeenCalledWith(transactions[0]);
     expect(onDelete).toHaveBeenCalledWith(transactions[0]);
   });
+
+  it("selects transactions and applies a batch category", async () => {
+    const user = userEvent.setup();
+    const onBatchCategory = vi.fn();
+    render(<GroupedTransactions transactions={transactions} accounts={[]} categories={[{ id: "food", name: "餐饮", type: "expense", parentId: "root" }]} onDelete={vi.fn()} onOpenAttachment={vi.fn()} onBatchCategory={onBatchCategory} />);
+    await user.click(screen.getByRole("button", { name: "批量管理" }));
+    await user.click(screen.getByRole("button", { name: /8月6日/ }));
+    await user.click(screen.getByRole("button", { name: "选择麦当劳" }));
+    await user.selectOptions(screen.getByLabelText("批量修改分类"), "餐饮");
+    expect(onBatchCategory).toHaveBeenCalledWith(["1"], "餐饮");
+  });
 });
