@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
 import { defaultLedgerCategories } from "./category-config";
+import { mergeMigrationBundle, migrationCounts, type MergeResult, type MigrationBundle, type MigrationCounts } from "./migration";
 
 export type Id = string;
 export type Todo = { id: Id; text: string; done: boolean; createdAt: string };
@@ -14,6 +15,7 @@ export type Account = { id: Id; name: string; opening: number; kind: string };
 export type DuplicateCheck = { possible: boolean; similarity: number; matchedTransactionId?: Id };
 export type Transaction = { id: Id; type: "income" | "expense"; amount: number; category: string; subcategory?: string; merchant?: string; accountId: Id; date: string; note: string; source: "manual" | "ocr" | "notification" | "import"; sourceProvider?: string; externalId?: string; dedupeKey?: string; rawPayload?: string; confidence?: number; imageId?: Id; duplicateCheck?: DuplicateCheck; reviewStatus: "candidate" | "confirmed"; createdAt: string; updatedAt: string };
 export type TransactionAttachment = { id: Id; transactionId: Id; image: Blob; createdAt: string };
+export type RestoreSnapshot = { id: Id; createdAt: string; reason: "before-import" | "manual"; label: string; payload: string; counts: MigrationCounts };
 export type Budget = { id: Id; category: string; amount: number; month: string };
 export type VaultEntry = { id: Id; title: string; ciphertext: string; iv: string; createdAt: string };
 export type VaultMeta = { salt: string; verifier: string; verifierIv: string } | null;
@@ -99,11 +101,13 @@ export function normalizeAppData(input: unknown): AppData {
 export class TitiaStore extends Dexie {
   state!: EntityTable<StateRow, "id">;
   transactionAttachments!: EntityTable<TransactionAttachment, "id">;
+  restoreSnapshots!: EntityTable<RestoreSnapshot, "id">;
 
   constructor(name = "titia-time-pwa") {
     super(name);
     this.version(1).stores({ state: "id,updatedAt" });
     this.version(2).stores({ state: "id,updatedAt", transactionAttachments: "id,transactionId,createdAt" });
+    this.version(3).stores({ state: "id,updatedAt", transactionAttachments: "id,transactionId,createdAt", restoreSnapshots: "id,createdAt,reason" });
   }
 
   async load(): Promise<AppData> {
@@ -148,10 +152,59 @@ export class TitiaStore extends Dexie {
     });
   }
 
+  async createBundle(): Promise<MigrationBundle> {
+    const attachments = await this.transactionAttachments.toArray();
+    return { version: 1, createdAt: new Date().toISOString(), data: await this.load(), attachments: await Promise.all(attachments.map(async (item) => ({ id: item.id, transactionId: item.transactionId, mime: item.image.type || "application/octet-stream", data: await blobToBase64(item.image), createdAt: item.createdAt }))) };
+  }
+
+  async createRestoreSnapshot(label: string, reason: RestoreSnapshot["reason"] = "before-import"): Promise<RestoreSnapshot> {
+    const bundle = await this.createBundle();
+    const snapshot: RestoreSnapshot = { id: uid(), createdAt: new Date().toISOString(), reason, label, payload: JSON.stringify(bundle), counts: migrationCounts(bundle) };
+    await this.restoreSnapshots.put(snapshot);
+    const stale = await this.restoreSnapshots.orderBy("createdAt").reverse().offset(10).toArray();
+    if (stale.length) await this.restoreSnapshots.bulkDelete(stale.map((item) => item.id));
+    return snapshot;
+  }
+
+  async listRestoreSnapshots(): Promise<RestoreSnapshot[]> {
+    return this.restoreSnapshots.orderBy("createdAt").reverse().toArray();
+  }
+
+  async restoreSnapshot(id: Id): Promise<AppData> {
+    const snapshot = await this.restoreSnapshots.get(id);
+    if (!snapshot) throw new Error("恢复记录不存在");
+    const bundle = JSON.parse(snapshot.payload) as MigrationBundle;
+    return this.transaction("rw", this.state, this.transactionAttachments, async () => {
+      await this.save(normalizeAppData(bundle.data));
+      await this.transactionAttachments.clear();
+      if (bundle.attachments.length) await this.transactionAttachments.bulkPut(bundle.attachments.map((item) => ({ id: item.id, transactionId: item.transactionId, image: base64ToBlob(item.data, item.mime), createdAt: item.createdAt })));
+      return this.load();
+    });
+  }
+
+  async mergeBundle(incoming: MigrationBundle, snapshotLabel = "导入前自动备份"): Promise<MergeResult> {
+    const current = await this.createBundle();
+    const snapshot: RestoreSnapshot = { id: uid(), createdAt: new Date().toISOString(), reason: "before-import", label: snapshotLabel, payload: JSON.stringify(current), counts: migrationCounts(current) };
+    const result = mergeMigrationBundle(current, incoming);
+    return this.transaction("rw", this.state, this.transactionAttachments, this.restoreSnapshots, async () => {
+      await this.restoreSnapshots.put(snapshot);
+      await this.save(result.bundle.data);
+      const existing = new Set((await this.transactionAttachments.toArray()).map((item) => item.id));
+      const fresh = result.bundle.attachments.filter((item) => !existing.has(item.id));
+      if (fresh.length) await this.transactionAttachments.bulkPut(fresh.map((item) => ({ id: item.id, transactionId: item.transactionId, image: base64ToBlob(item.data, item.mime), createdAt: item.createdAt })));
+      const stale = await this.restoreSnapshots.orderBy("createdAt").reverse().offset(10).toArray();
+      if (stale.length) await this.restoreSnapshots.bulkDelete(stale.map((item) => item.id));
+      return result;
+    });
+  }
+
   static balance(transactions: Transaction[], opening = 0): number {
     return transactions.filter((t) => t.reviewStatus === "confirmed").reduce((sum, t) => sum + (t.type === "income" ? t.amount : -t.amount), opening);
   }
 }
+
+const blobToBase64 = (blob: Blob) => new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onerror = () => reject(reader.error); reader.onload = () => resolve(String(reader.result).split(",")[1] ?? ""); reader.readAsDataURL(blob); });
+const base64ToBlob = (value: string, mime: string) => new Blob([Uint8Array.from(atob(value), (char) => char.charCodeAt(0))], { type: mime });
 
 const bytes = (value: string) => Uint8Array.from(atob(value), (c) => c.charCodeAt(0));
 const base64 = (value: ArrayBuffer | Uint8Array) => btoa(String.fromCharCode(...new Uint8Array(value instanceof Uint8Array ? value.buffer : value)));

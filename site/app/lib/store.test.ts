@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { TitiaStore, emptyData, normalizeAppData, type Transaction } from "./store";
+import type { MigrationBundle } from "./migration";
 
 describe("TitiaStore", () => {
   beforeEach(() => indexedDB.deleteDatabase("titia-test"));
@@ -69,5 +70,24 @@ describe("TitiaStore", () => {
     const migrated = normalizeAppData({ ...legacy, version: 2 });
     expect(migrated.version).toBe(3);
     expect(migrated.transactions[0]).toEqual(expect.objectContaining({ id: "old", amount: 80, merchant: "", subcategory: "", sourceProvider: "" }));
+  });
+
+  it("creates a pre-import snapshot and merges records by ID transactionally", async () => {
+    const store = new TitiaStore("titia-test");
+    const current = { ...emptyData(), diaries: [{ id: "same", title: "当前", body: "不能覆盖", mood: "", date: "2026-08-06" }] };
+    await store.save(current);
+    const incoming: MigrationBundle = { version: 1, createdAt: "2026-08-06", data: { ...emptyData(), diaries: [{ id: "same", title: "旧", body: "旧内容", mood: "", date: "2026-08-05" }, { id: "new", title: "新增", body: "内容", mood: "", date: "2026-08-05" }] }, attachments: [] };
+
+    const result = await store.mergeBundle(incoming, "导入前自动备份");
+    expect(result.added).toBe(1);
+    expect((await store.load()).diaries.find((item) => item.id === "same")?.body).toBe("不能覆盖");
+    expect((await store.load()).diaries).toHaveLength(2);
+    const snapshots = await store.listRestoreSnapshots();
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0].reason).toBe("before-import");
+
+    await store.restoreSnapshot(snapshots[0].id);
+    expect((await store.load()).diaries).toEqual(current.diaries);
+    store.close();
   });
 });
