@@ -6,14 +6,14 @@ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
 test("PWA metadata and worker registration are deployment-base aware", async () => {
   const manifest = JSON.parse(await read("public/manifest.webmanifest"));
-  const registration = await read("public/register-sw.js");
+  const registration = await read("src/main.tsx");
   const worker = await read("public/sw.js");
 
   assert.equal(manifest.id, "./");
   assert.equal(manifest.start_url, "./?source=pwa");
   assert.equal(manifest.scope, "./");
   assert.ok(manifest.icons.every((icon) => icon.src.startsWith("./")));
-  assert.match(registration, /document\.baseURI/);
+  assert.match(registration, /import\.meta\.env\.BASE_URL/);
   assert.match(worker, /self\.registration\.scope/);
 });
 
