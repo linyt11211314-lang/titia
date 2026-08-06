@@ -20,7 +20,7 @@ test("PWA metadata and worker registration are deployment-base aware", async () 
 test("static hosts deploy dist without authentication redirects", async () => {
   const vercel = JSON.parse(await read("vercel.json"));
   const cloudflare = await read("public/_redirects");
-  const github = await read(".github/workflows/pages.yml");
+  const github = await readFile(new URL("../../.github/workflows/pages.yml", import.meta.url), "utf8");
 
   assert.deepEqual(vercel.rewrites, [{ source: "/(.*)", destination: "/index.html" }]);
   assert.match(cloudflare, /^\/\* \/index\.html 200/m);
@@ -28,4 +28,3 @@ test("static hosts deploy dist without authentication redirects", async () => {
   assert.match(github, /path: site\/dist/);
   assert.doesNotMatch(`${cloudflare}\n${github}`, /chatgpt|auth|login/i);
 });
-
