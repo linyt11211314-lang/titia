@@ -1,0 +1,6 @@
+/* Small-screen fixes loaded after the base theme so iPhone layouts keep weather visible. */
+.budget-card{display:block;width:100%;text-align:left}
+.budget-card h3{display:flex;justify-content:space-between}
+.budget-card h3 span{color:var(--blue);font-size:13px;font-weight:500}
+
+@media(max-width:420px){.weather{display:flex;min-width:92px;margin-left:10px}.hero-card>div:first-child{min-width:0}.weather b{font-size:18px;white-space:nowrap}.weather span{font-size:11px}}

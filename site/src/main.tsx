@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { TitiaApp } from "../app/TitiaApp";
 import "../app/globals.css";
+import "../app/mobile-fixes.css";
 
 const root = document.getElementById("root");
 

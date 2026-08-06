@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { TitiaApp } from "./TitiaApp";
 
 afterEach(cleanup);
@@ -19,6 +20,20 @@ describe("TitiaApp", () => {
     await user.click(await screen.findByRole("button", { name: "小账" }));
     await user.click(screen.getByRole("button", { name: "记一笔" }));
     expect(screen.getByLabelText("金额")).toHaveAttribute("step", "0.01");
+  });
+
+  it("opens the real budget form from the ledger home budget card", async () => {
+    const user = userEvent.setup();
+    render(<TitiaApp />);
+    await user.click(await screen.findByRole("button", { name: "小账" }));
+    await user.click(screen.getByRole("button", { name: "设置本月预算" }));
+    expect(screen.getByRole("heading", { name: "设置预算" })).toBeInTheDocument();
+    expect(screen.getByLabelText("预算金额")).toHaveAttribute("type", "number");
+  });
+
+  it("keeps the current weather visible on phone-width layouts", () => {
+    const mobileFixes = readFileSync("app/mobile-fixes.css", "utf8");
+    expect(mobileFixes).toContain("@media(max-width:420px){.weather{display:flex");
   });
 
   it("shows a real-data overview above every ledger secondary page", async () => {
