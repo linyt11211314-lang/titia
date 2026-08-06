@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { TitiaApp } from "../app/TitiaApp";
+import { keepPwaFresh } from "./pwaUpdate";
 import "../app/globals.css";
 import "../app/mobile-fixes.css";
 
@@ -17,6 +18,11 @@ createRoot(root).render(
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     const base = import.meta.env.BASE_URL;
-    navigator.serviceWorker.register(`${base}sw.js`, { scope: base }).catch(() => undefined);
+    keepPwaFresh({
+      serviceWorker: navigator.serviceWorker,
+      base,
+      reload: () => window.location.reload(),
+      visibilityTarget: document,
+    }).catch(() => undefined);
   });
 }

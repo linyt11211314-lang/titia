@@ -36,6 +36,13 @@ describe("TitiaApp", () => {
     expect(mobileFixes).toContain("@media(max-width:420px){.weather{display:flex");
   });
 
+  it("includes an iPhone 14 Pro safe-area layout", () => {
+    const mobileFixes = readFileSync("app/mobile-fixes.css", "utf8");
+    expect(mobileFixes).toContain("@media(max-width:430px)");
+    expect(mobileFixes).toContain("env(safe-area-inset-top)");
+    expect(mobileFixes).toContain("env(safe-area-inset-bottom)");
+  });
+
   it("shows a real-data overview above every ledger secondary page", async () => {
     const user = userEvent.setup();
     render(<TitiaApp />);
