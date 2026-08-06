@@ -74,14 +74,22 @@ describe("TitiaApp", () => {
     expect(screen.getByRole("button", { name: "🔎 矛盾复盘" })).toHaveClass("active");
   });
 
-  it("does not show opacity settings while the Spark button is being held", async () => {
+  it("opens opacity settings when the Spark button is held without moving", async () => {
     render(<TitiaApp />);
     const button = await screen.findByRole("button", { name: "灵光一闪" });
     fireEvent.pointerDown(button, { pointerId: 1, clientX: 300, clientY: 300 });
     await new Promise((resolve) => window.setTimeout(resolve, 1050));
-    expect(screen.queryByLabelText("灵光按钮设置")).not.toBeInTheDocument();
-    fireEvent.pointerUp(button, { pointerId: 1, clientX: 300, clientY: 300 });
     expect(screen.getByLabelText("灵光按钮设置")).toBeInTheDocument();
+  });
+
+  it("starts moving the Spark button immediately and does not open settings", async () => {
+    render(<TitiaApp />);
+    const button = await screen.findByRole("button", { name: "灵光一闪" });
+    fireEvent.pointerDown(button, { pointerId: 2, clientX: 300, clientY: 300 });
+    fireEvent.pointerMove(button, { pointerId: 2, clientX: 180, clientY: 260 });
+    expect(button).toHaveClass("editing");
+    fireEvent.pointerUp(button, { pointerId: 2, clientX: 180, clientY: 260 });
+    expect(screen.queryByLabelText("灵光按钮设置")).not.toBeInTheDocument();
   });
 
   it("opens an accessible vault password sheet", async () => {

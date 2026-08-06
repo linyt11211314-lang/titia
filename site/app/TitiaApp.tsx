@@ -53,6 +53,9 @@ export function TitiaApp() {
   const sparkTimer = useRef<number | null>(null);
   const sparkLongPressed = useRef(false);
   const sparkDragging = useRef(false);
+  const sparkSuppressClick = useRef(false);
+  const sparkPointerStart = useRef<{x:number;y:number}|null>(null);
+  const sparkPointerOffset = useRef<{x:number;y:number}>({x:29,y:29});
   const sparkPositionRef = useRef<{x:number|null;y:number|null}>({x:null,y:null});
 
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2200); };
@@ -128,20 +131,26 @@ export function TitiaApp() {
       style={{ opacity: sparkEditing ? sparkDraft.opacity : data.userPreferences.floatingButton.opacity, ...(typeof (sparkEditing ? sparkDraft.x : data.userPreferences.floatingButton.x) === "number" ? { left: sparkEditing ? sparkDraft.x! : data.userPreferences.floatingButton.x!, top: sparkEditing ? sparkDraft.y! : data.userPreferences.floatingButton.y!, right: "auto", bottom: "auto" } : {}) }}
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture?.(event.pointerId);
-        if (sparkEditing) { sparkDragging.current = true; return; }
+        if (sparkTimer.current) window.clearTimeout(sparkTimer.current);
         sparkLongPressed.current = false;
+        sparkDragging.current = false;
+        sparkSuppressClick.current = false;
+        sparkPointerStart.current = {x:event.clientX,y:event.clientY};
         const rect=event.currentTarget.getBoundingClientRect();
-        sparkTimer.current = window.setTimeout(() => { const initial={x:typeof data.userPreferences.floatingButton.x==="number"?data.userPreferences.floatingButton.x:rect.left,y:typeof data.userPreferences.floatingButton.y==="number"?data.userPreferences.floatingButton.y:rect.top,opacity:data.userPreferences.floatingButton.opacity};sparkLongPressed.current = true;sparkDragging.current=true;sparkPositionRef.current=initial;setSparkDraft(initial);setSparkSettingsOpen(false);setSparkEditing(true); }, 1000);
+        sparkPointerOffset.current={x:event.clientX-rect.left,y:event.clientY-rect.top};
+        sparkTimer.current = window.setTimeout(() => { if(sparkDragging.current)return;const initial={x:typeof data.userPreferences.floatingButton.x==="number"?data.userPreferences.floatingButton.x:rect.left,y:typeof data.userPreferences.floatingButton.y==="number"?data.userPreferences.floatingButton.y:rect.top,opacity:data.userPreferences.floatingButton.opacity};sparkLongPressed.current=true;sparkSuppressClick.current=true;setSparkDraft(initial);setSparkSettingsOpen(true); }, 1000);
       }}
       onPointerMove={(event) => {
-        if (!sparkEditing || !sparkDragging.current) return;
-        const position=clampFloatingPosition({x:event.clientX-29,y:event.clientY-29},{width:window.innerWidth,height:window.innerHeight,buttonSize:58,sideInset:8,topInset:55,bottomInset:126});
+        const start=sparkPointerStart.current;if(!start)return;
+        if(!sparkDragging.current&&Math.hypot(event.clientX-start.x,event.clientY-start.y)<8)return;
+        if(!sparkDragging.current){sparkDragging.current=true;sparkSuppressClick.current=true;if(sparkTimer.current)window.clearTimeout(sparkTimer.current);setSparkSettingsOpen(false);setSparkEditing(true);}
+        const position=clampFloatingPosition({x:event.clientX-sparkPointerOffset.current.x,y:event.clientY-sparkPointerOffset.current.y},{width:window.innerWidth,height:window.innerHeight,buttonSize:58,sideInset:8,topInset:55,bottomInset:126});
         sparkPositionRef.current=position;
-        setSparkDraft((draft) => ({ ...draft, ...position }));
+        setSparkDraft({ ...position, opacity:data.userPreferences.floatingButton.opacity });
       }}
-      onPointerUp={() => { if (sparkTimer.current) window.clearTimeout(sparkTimer.current); const position=sparkPositionRef.current;if(sparkEditing&&sparkDragging.current&&typeof position.x==="number"&&typeof position.y==="number"){const saved={...sparkDraft,...position};setSparkDraft(saved);setData((current)=>({...current,preferences:{...current.preferences,sparkFab:saved},userPreferences:{...current.userPreferences,floatingButton:saved}}));setSparkEditing(false);setSparkSettingsOpen(true);} sparkDragging.current = false; }}
-      onPointerCancel={() => { if (sparkTimer.current) window.clearTimeout(sparkTimer.current); sparkDragging.current = false; setSparkEditing(false); }}
-      onClick={() => { if (sparkLongPressed.current || sparkEditing) { sparkLongPressed.current = false; return; } setSparkFullscreen(true); }}><Feather size={25}/></button>}
+      onPointerUp={() => { if (sparkTimer.current) window.clearTimeout(sparkTimer.current); const position=sparkPositionRef.current;if(sparkDragging.current&&typeof position.x==="number"&&typeof position.y==="number"){const saved={x:position.x,y:position.y,opacity:data.userPreferences.floatingButton.opacity};setSparkDraft(saved);setData((current)=>({...current,preferences:{...current.preferences,sparkFab:saved},userPreferences:{...current.userPreferences,floatingButton:saved}}));}sparkPointerStart.current=null;sparkDragging.current=false;setSparkEditing(false); }}
+      onPointerCancel={() => { if (sparkTimer.current) window.clearTimeout(sparkTimer.current); sparkPointerStart.current=null;sparkDragging.current=false;setSparkEditing(false); }}
+      onClick={() => { if(sparkSuppressClick.current){sparkSuppressClick.current=false;sparkLongPressed.current=false;return;}setSparkFullscreen(true); }}><Feather size={25}/></button>}
     {!sparkFullscreen&&sparkSettingsOpen && <section className="spark-editor card" aria-label="灵光按钮设置"><header><div><small>位置已保存</small><h3>灵光按钮</h3></div><button aria-label="关闭设置" className="icon-button" onClick={() => setSparkSettingsOpen(false)}><X/></button></header><p>透明度</p><div className="opacity-options">{[20,40,60,80,100].map((value)=><button key={value} className={Math.round(sparkDraft.opacity*100)===value?"active":""} onClick={()=>setSparkDraft((draft)=>({...draft,opacity:value/100}))}>{value}%</button>)}</div><button className="primary full" onClick={()=>{setData((current)=>({...current,preferences:{...current.preferences,sparkFab:sparkDraft},userPreferences:{...current.userPreferences,floatingButton:sparkDraft}}));setSparkSettingsOpen(false);notify("灵光按钮设置已保存")}}>保存设置</button></section>}
     {!sparkFullscreen&&<nav className="bottom-nav" aria-label="主导航">{mainTabs.map(({ id, label, icon: Icon }) => <button key={id} aria-label={label} className={tab === id ? "active" : ""} onClick={() => setTab(id)}><Icon/><span>{label}</span></button>)}</nav>}
     {sparkFullscreen&&<SparkFullscreen data={data} setData={setData} onClose={()=>setSparkFullscreen(false)} onAdd={()=>setForm("spark")} notify={notify}/>}
