@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import { TitiaApp } from "./TitiaApp";
@@ -72,6 +72,16 @@ describe("TitiaApp", () => {
     expect(screen.getByRole("button", { name: "💞 感动瞬间" })).toHaveClass("active");
     await user.click(screen.getByRole("button", { name: "🔎 矛盾复盘" }));
     expect(screen.getByRole("button", { name: "🔎 矛盾复盘" })).toHaveClass("active");
+  });
+
+  it("does not show opacity settings while the Spark button is being held", async () => {
+    render(<TitiaApp />);
+    const button = await screen.findByRole("button", { name: "灵光一闪" });
+    fireEvent.pointerDown(button, { pointerId: 1, clientX: 300, clientY: 300 });
+    await new Promise((resolve) => window.setTimeout(resolve, 1050));
+    expect(screen.queryByLabelText("灵光按钮设置")).not.toBeInTheDocument();
+    fireEvent.pointerUp(button, { pointerId: 1, clientX: 300, clientY: 300 });
+    expect(screen.getByLabelText("灵光按钮设置")).toBeInTheDocument();
   });
 
   it("opens an accessible vault password sheet", async () => {
