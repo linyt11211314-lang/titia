@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ReviewBatch, ReviewDraft } from "../lib/billParser";
 import type { Account, LedgerCategory } from "../lib/store";
 
@@ -17,8 +17,6 @@ const money = (value: number) => `¥${value.toFixed(2)}`;
 
 export function LedgerReview({ batch, accounts, categories, imageUrl, onChange, onDelete, onSave, onReparse }: Props) {
   const [drafts, setDrafts] = useState(batch.drafts);
-  useEffect(() => setDrafts(batch.drafts), [batch]);
-
   const update = (id: string, patch: Partial<ReviewDraft>) => {
     setDrafts((current) => current.map((draft) => {
       if (draft.id !== id) return draft;

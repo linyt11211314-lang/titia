@@ -54,3 +54,13 @@ node --test tests/rendered-html.node-test.mjs
 - 灵光一闪按钮默认 70% 透明度，长按一秒后可拖动和调整透明度；位置及设置保存在 IndexedDB。
 
 AppData 会从 V1 自动归一化到 V2，保留原有业务数据。V2 新增 `ledgerCategories`、`preferences.sparkFab` 和 `backupMeta.lastSpreadsheetExportAt`，不引入账号或服务器同步。
+
+## V2.0 本地智能记账
+
+- 图片优先使用浏览器文字检测；iOS Safari 自动懒加载 Tesseract.js 中文/英文模型，在设备内执行 OCR。首次使用需要联网下载模型，之后语言数据由浏览器缓存。
+- OCR 后依次执行来源识别、金额加权、保守订单拆分、分类匹配与重复检测。多金额、未分类和疑似重复结果不会自动入账。
+- 智能审核支持逐笔修改、金额候选选择、全选可保存项、删除草稿、重新识别及保存选中账单。
+- 账单按日期聚合展示。账户余额始终由期初余额和已确认交易派生，删除交易时同时删除附件并自动恢复余额。
+- 原图保存在独立 IndexedDB `transactionAttachments` 表；图片字节不会发送给 Titia 或第三方 OCR 服务。OCR 引擎可能下载程序及语言模型，但识别输入只在当前设备处理。
+
+AppData V3 为交易增加二级分类、商户、来源平台、可信度、附件和重复检测字段。V1/V2 备份会自动归一化，旧账单字段保持不变。

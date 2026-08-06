@@ -9,6 +9,7 @@ import { buildLedgerWorkbook, buildTransactionCsv, parseLedgerWorkbook } from ".
 import { parseBillBatch, reviewDraftToTransaction, type ReviewBatch, type ReviewDraft } from "./lib/billParser";
 import { LedgerReview } from "./components/LedgerReview";
 import { GroupedTransactions } from "./components/GroupedTransactions";
+import { recognizeImageLocally } from "./lib/localOcr";
 
 type MainTab = "today" | "home" | "ledger" | "time" | "me";
 type FormKind = "todo" | "shopping" | "countdown" | "period" | "pet" | "petRecord" | "diary" | "relationship" | "transaction" | "account" | "budget" | "vault" | "spark" | null;
@@ -211,7 +212,7 @@ function DataCenter({data,setData,notify}:any){
 function AiRecognition({data,setData,notify}:any){
   const fileRef=useRef<HTMLInputElement>(null);const [image,setImage]=useState("");const [imageBlob,setImageBlob]=useState<Blob|null>(null);const [attachmentId,setAttachmentId]=useState("");const [ocrText,setOcrText]=useState("");const [batch,setBatch]=useState<ReviewBatch|null>(null);const [busy,setBusy]=useState(false);
   const parseText=()=>{const result=parseBillBatch({text:ocrText,attachmentId:attachmentId||undefined,data});setBatch(result);notify(result.drafts.some((draft)=>draft.valid)?`已生成 ${result.drafts.length} 笔审核草稿`:"没有可靠金额，请在审核页补充")};
-  const chooseImage=async(file?:File)=>{if(!file)return;if(image)URL.revokeObjectURL(image);setImage(URL.createObjectURL(file));setImageBlob(file);const nextAttachmentId=uid();setAttachmentId(nextAttachmentId);const Detector=(window as any).TextDetector;if(!Detector){notify("图片只保存在本机；当前 Safari 请粘贴系统提取的文字继续");return;}setBusy(true);try{const bitmap=await createImageBitmap(file);const blocks=await new Detector().detect(bitmap);const text=blocks.map((block:any)=>block.rawValue).join("\n");setOcrText(text);setBatch(parseBillBatch({text,attachmentId:nextAttachmentId,data}));}catch{notify("本地 OCR 识别失败，可粘贴文字继续");}finally{setBusy(false)}};
+  const chooseImage=async(file?:File)=>{if(!file)return;if(image)URL.revokeObjectURL(image);setImage(URL.createObjectURL(file));setImageBlob(file);const nextAttachmentId=uid();setAttachmentId(nextAttachmentId);setBusy(true);notify("正在设备本地识别，首次使用需加载 OCR 模型");try{const text=await recognizeImageLocally(file);setOcrText(text);setBatch(parseBillBatch({text,attachmentId:nextAttachmentId,data}));notify("本地识别完成，请审核后保存");}catch{notify("本地 OCR 识别失败，可粘贴文字继续");}finally{setBusy(false)}};
   const changeDraft=(changed:ReviewDraft)=>setBatch((current)=>current?{...current,drafts:current.drafts.map((draft)=>draft.id===changed.id?changed:draft)}:current);
   const deleteDraft=(id:string)=>setBatch((current)=>current?{...current,drafts:current.drafts.filter((draft)=>draft.id!==id)}:current);
   const confirm=async(ids:string[])=>{if(!batch)return;const chosen=batch.drafts.filter((draft)=>ids.includes(draft.id));const transactions=chosen.map(reviewDraftToTransaction).map((transaction)=>imageBlob?{...transaction,imageId:uid()}:transaction);setData((current:AppData)=>({...current,transactions:[...transactions,...current.transactions]}));if(imageBlob)await Promise.all(transactions.map((transaction)=>store.putAttachment({id:transaction.imageId!,transactionId:transaction.id,image:imageBlob,createdAt:new Date().toISOString()})));notify(`已保存 ${transactions.length} 条识别账单`);setBatch(null)};
