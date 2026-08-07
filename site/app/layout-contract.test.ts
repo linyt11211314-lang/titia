@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 
 const css = readFileSync(`${process.cwd()}/app/mobile-fixes.css`, "utf8");
 const app = readFileSync(`${process.cwd()}/app/TitiaApp.tsx`, "utf8");
+const manifest = readFileSync(`${process.cwd()}/public/manifest.webmanifest`, "utf8");
+const indexHtml = readFileSync(`${process.cwd()}/index.html`, "utf8");
 
 describe("mobile layout contracts", () => {
   it("keeps section headers on one fixed vertical rhythm", () => {
@@ -26,7 +28,7 @@ describe("mobile layout contracts", () => {
   });
 
   it("uses the clickable application settings entry instead of a duplicate settings title", () => {
-    expect(app).toContain('<Header eyebrow="生活的小小秩序" title="我呀"/>');
+    expect(app).toContain('className="card me-banner"');
     expect(app).toContain('<b>应用设置</b>');
   });
 
@@ -44,5 +46,25 @@ describe("mobile layout contracts", () => {
     expect(css).toContain(".dynamic-island-scroll{position:fixed;z-index:90;top:env(safe-area-inset-top)");
     expect(css).toContain(".bottom-nav{bottom:max(10px,env(safe-area-inset-bottom));height:70px;width:calc(100% - 20px);border-radius:27px");
     expect(css).toContain("padding-bottom:calc(92px + env(safe-area-inset-bottom))");
+  });
+
+  it("restores the Me banner without changing other page data", () => {
+    expect(app).toContain('className="card me-banner"');
+    expect(app).toContain("Titia 时序");
+  });
+
+  it("pins daily expense summaries and centers the analysis pie", () => {
+    expect(css).toContain(".transaction-day-summary{display:grid;grid-template-columns:minmax(0,1fr) 108px");
+    expect(css).toContain(".analysis>.pie-chart{display:block;width:148px;height:148px;margin:14px auto 18px");
+  });
+
+  it("keeps the bottom navigation fixed as a non-moving floating capsule", () => {
+    expect(css).toContain(".bottom-nav{position:fixed!important;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom))");
+  });
+
+  it("uses the supplied desktop icon and a distinct AI scan icon", () => {
+    expect(manifest).toContain("./titia-icon.jpg");
+    expect(indexHtml).toContain("titia-icon.jpg");
+    expect(app).toContain('<ScanLine size={19}/>');
   });
 });
