@@ -32,7 +32,10 @@ export function LedgerReview({ batch, accounts, categories, imageUrl, onChange, 
   };
   const selectable = drafts.filter((draft) => draft.valid && !draft.needsAmountChoice);
   const selected = selectable.filter((draft) => draft.selected).map((draft) => draft.id);
-  const children = (draft: ReviewDraft) => categories.filter((category) => category.parentId && category.type === draft.type);
+  const categoryOptions = (draft: ReviewDraft) => {
+    const options=categories.filter((category) => category.parentId && category.type === draft.type).map((category)=>({value:category.name,label:category.name,group:categories.find((parent)=>parent.id===category.parentId)?.name}));
+    return draft.subcategory&&!options.some((option)=>option.value===draft.subcategory)?[...options,{value:draft.subcategory,label:draft.subcategory,group:draft.category||"其他"}]:options;
+  };
 
   return <section className="ledger-review" aria-label="智能审核">
     <header className="review-heading">
@@ -55,8 +58,7 @@ export function LedgerReview({ batch, accounts, categories, imageUrl, onChange, 
       <div className="review-fields">
         <label>商户<input value={draft.merchant} onChange={(event) => update(draft.id, { merchant: event.target.value })} /></label>
         <CardSelect label="类型" value={draft.type} onChange={(value) => update(draft.id, { type: value as ReviewDraft["type"] })} options={[{value:"expense",label:"支出"},{value:"income",label:"收入"}]}/>
-        <label>分类<input value={draft.category} onChange={(event) => update(draft.id, { category: event.target.value, needsCategoryReview: false })} /></label>
-        <CardSelect label="二级分类" value={draft.subcategory} onChange={(value) => update(draft.id, { subcategory: value })} options={[{value:"",label:"未选择"},...children(draft).map((category)=>({value:category.name,label:category.name})),...(draft.subcategory&&!children(draft).some((category)=>category.name===draft.subcategory)?[{value:draft.subcategory,label:draft.subcategory}]:[])]}/>
+        <CardSelect label="一级 / 二级分类" value={draft.subcategory} onChange={(value) => {const selected=categories.find((category)=>category.type===draft.type&&category.parentId&&category.name===value);const parent=categories.find((category)=>category.id===selected?.parentId);update(draft.id, { category:parent?.name||draft.category,subcategory:value,needsCategoryReview:false });}} options={categoryOptions(draft)}/>
         <CardSelect label="账户" value={draft.accountId} onChange={(value) => update(draft.id, { accountId: value })} options={accounts.map(account=>({value:account.id,label:account.name}))}/>
         <label>时间<input type="datetime-local" value={draft.date.slice(0, 16)} onChange={(event) => update(draft.id, { date: event.target.value })} /></label>
       </div>

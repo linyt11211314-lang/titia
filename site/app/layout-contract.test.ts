@@ -82,5 +82,13 @@ describe("mobile layout contracts", () => {
     expect(app).toContain('className="ai-review-backdrop"');
     expect(app).toContain('className="ai-review-card" role="dialog" aria-modal="true"');
     expect(css).toContain(".ai-review-backdrop{position:fixed;inset:0;z-index:70");
+    expect(css).toContain("overflow-x:hidden;overflow-y:auto");
+    expect(app).toContain("navigator.clipboard.readText().then");
+  });
+
+  it("tries bill-only clipboard recognition when the app starts", () => {
+    expect(app).toContain("const looksLikeBillClipboard=");
+    expect(app).toContain('setLedgerSection("AI识别")');
+    expect(app).toContain('initialText={startupBillText}');
   });
 });

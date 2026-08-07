@@ -40,6 +40,7 @@ const sessionDay = today();
 const money = (value: number) => formatCompactNumber(value, true);
 const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => { const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file); });
 const resetAfterNavigation=()=>requestAnimationFrame(()=>{if(import.meta.env.MODE!=="test")scrollAppToTop()});
+const looksLikeBillClipboard=(text:string)=>/(微信支付|支付宝|实付款|付款金额|支付金额|扣款金额|交易成功|收款)/.test(text)&&/(?:¥|￥|金额|付款|支付|实付)[^\d]{0,8}\d+(?:\.\d{1,2})?/.test(text);
 
 export function TitiaApp() {
   const [data, setData] = useState<AppData>(emptyData);
@@ -59,6 +60,7 @@ export function TitiaApp() {
   const [sparkSettingsOpen, setSparkSettingsOpen] = useState(false);
   const [sparkFullscreen, setSparkFullscreen] = useState(false);
   const [sparkDraft, setSparkDraft] = useState({ x: null as number | null, y: null as number | null, opacity: 0.8 });
+  const [startupBillText,setStartupBillText]=useState("");
   const sparkTimer = useRef<number | null>(null);
   const sparkLongPressed = useRef(false);
   const sparkDragging = useRef(false);
@@ -69,6 +71,7 @@ export function TitiaApp() {
 
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2200); };
   useEffect(() => { store.load().then((value) => { setData(value); setReady(true); }); }, []);
+  useEffect(()=>{if(!ready||!navigator.clipboard?.readText)return;void navigator.clipboard.readText().then((text)=>{if(!looksLikeBillClipboard(text))return;setStartupBillText(text);setTab("ledger");setLedgerSection("AI识别")}).catch(()=>undefined)},[ready]);
   useEffect(() => { if (ready) store.save(data).catch(() => notify("保存失败，请检查存储空间")); }, [data, ready]);
   const lockVault=()=>{setVaultKey(null);setVaultVisible({});};
   const changeTab=(next:MainTab)=>{if(next!=="home")lockVault();setTab(next);resetAfterNavigation()};
@@ -131,7 +134,7 @@ export function TitiaApp() {
   };
   const page = tab === "today" ? <Today data={data} setData={setData} add={setForm} remove={remove} />
     : tab === "home" ? <HomeSpace data={data} section={homeSection} setSection={changeHomeSection} setData={setData} add={setForm} remove={remove} vaultKey={vaultKey} setupOrUnlock={setupOrUnlock} revealVault={revealVault} hideVault={(id:string)=>setVaultVisible((current)=>{const next={...current};delete next[id];return next})} visible={vaultVisible} />
-    : tab === "ledger" ? <Ledger data={data} setData={setData} section={ledgerSection} setSection={setLedgerSection} add={setForm} remove={remove} notify={notify} />
+    : tab === "ledger" ? <Ledger data={data} setData={setData} section={ledgerSection} setSection={setLedgerSection} add={setForm} remove={remove} notify={notify} initialText={startupBillText} />
     : tab === "time" ? <TimeSpace data={data} setData={setData} section={timeSection} setSection={setTimeSection} add={setForm} remove={remove} />
     : <Me data={data} setData={setData} exportBackup={exportBackup} notify={notify} />;
 
@@ -213,9 +216,9 @@ function RecordImages({images,alt}:{images:string[];alt:string}){return images.l
 function PetView({data,add,remove}:any){const pet=data.pets[0];if(!pet)return <Empty icon={<Cat/>} title="欢迎一位小伙伴" text="建立宠物档案，记录成长与健康" action={<button className="primary" onClick={()=>add("pet")}>创建档案</button>}/>;return <><div className="card pet-profile"><div className="pet-avatar">🐾</div><div><small>我的憨憨</small><h2>{pet.name}</h2><p>{pet.breed} · {pet.sex} · {pet.birthday}</p></div></div><div className="pet-actions">{[["moment","成长时光","📸"],["weight","体重","⚖️"],["health","健康记录","💊"]].map(([id,label,icon])=><button key={id} onClick={()=>add("petRecord")}><span>{icon}</span>{label}</button>)}</div>{data.petRecords.map((x:any)=><article className="card record-card" key={x.id}><RecordImages images={x.images??(x.image?[x.image]:[])} alt={`${pet.name}成长图片`}/><small>{x.kind} · {x.date}</small><h3>{x.value||x.note}</h3><p>{x.note}</p><DeleteButton onClick={()=>remove("petRecords",x.id)}/></article>)}</>}
 function VaultView({data,keyValue,setup,add,remove,reveal,hide,visible}:any){if(!keyValue)return <Empty icon={<LockKeyhole/>} title={data.vaultMeta?"密码箱已锁定":"创建你的密码箱"} text="凭据经 AES-GCM 加密，只保存在此设备" action={<button className="primary" onClick={setup}>{data.vaultMeta?"输入主密码解锁":"设置主密码"}</button>}/>;return <><div className="security-note"><ShieldCheck/>已在本机安全解锁</div><button className="primary" onClick={()=>add("vault")}><Plus/>添加凭据</button>{data.vault.map((x:any)=><article className="card vault-card" key={x.id}><div><small>账号密码</small><h3>{x.title}</h3>{visible[x.id]?<><p>{visible[x.id].username}</p><code>{visible[x.id].password}</code><button className="text-button" aria-label="隐藏账号和密码" onClick={()=>hide(x.id)}>隐藏账号和密码</button></>:<button className="text-button" onClick={()=>reveal(x)}>查看账号和密码</button>}</div><DeleteButton onClick={()=>remove("vault",x.id)}/></article>)}</>}
 
-function Ledger({ data, setData, section, setSection, add, notify }: any) {
+function Ledger({ data, setData, section, setSection, add, notify, initialText="" }: any) {
   const [categoryType, setCategoryType] = useState<"expense" | "income">("expense");
-  const [clipboardSeed,setClipboardSeed]=useState("");
+  const [clipboardSeed,setClipboardSeed]=useState(initialText);
   const balance=TitiaStore.balance(data.transactions,data.accounts.reduce((s:number,a:any)=>s+a.opening,0));const income=data.transactions.filter((x:any)=>x.type==="income").reduce((s:number,x:any)=>s+x.amount,0);const expense=data.transactions.filter((x:any)=>x.type==="expense").reduce((s:number,x:any)=>s+x.amount,0);
   const action = section === "资产" ? <button className="primary small" onClick={()=>add("account")}><Plus/>加账户</button> : ["首页","账单"].includes(section) ? <button className="primary small" onClick={()=>add("transaction")}><Plus/>记一笔</button> : undefined;
   const openClipboardAi=async()=>{try{const text=await navigator.clipboard.readText();if(!text.trim())throw new Error();setClipboardSeed(text);notify("已读取剪贴板，正在生成审核草稿")}catch{setClipboardSeed("");notify("无法读取剪贴板，请在识别页粘贴文字")}setSection("AI识别")};
@@ -261,7 +264,7 @@ function BillApiSettings({data,setData,notify}:any){const config=data.userPrefer
 function AiRecognition({data,setData,notify,initialText=""}:any){
   const fileRef=useRef<HTMLInputElement>(null);const [image,setImage]=useState("");const [imageBlob,setImageBlob]=useState<Blob|null>(null);const [attachmentId,setAttachmentId]=useState("");const [ocrText,setOcrText]=useState(initialText);const [batch,setBatch]=useState<ReviewBatch|null>(null);const [busy,setBusy]=useState(false);
   const analyzeText=async(text:string,nextAttachmentId=attachmentId)=>{if(!text.trim())return;setBusy(true);let sourceText=text;try{if(data.userPreferences.billApi.enabled){const bills=await recognizeBillsWithApi(data.userPreferences.billApi,text);if(!bills.length)throw new Error("API 未识别到账单");sourceText=apiBillsToText(bills);notify(`DeepSeek 已识别 ${bills.length} 笔，正在生成审核草稿`)}const result=parseBillBatch({text:sourceText,attachmentId:nextAttachmentId||undefined,data});setBatch(result);notify(result.drafts.some((draft)=>draft.valid)?`已生成 ${result.drafts.length} 笔审核草稿`:"没有可靠金额，请在审核页补充")}catch(error){const result=parseBillBatch({text,attachmentId:nextAttachmentId||undefined,data});setBatch(result);notify(`${error instanceof Error?error.message:"API 识别失败"}，已回退本地规则`)}finally{setBusy(false)}};
-  useEffect(()=>{if(!initialText)return;const timer=window.setTimeout(()=>void analyzeText(initialText),0);return()=>window.clearTimeout(timer);/* 首次从顶部入口进入时立即调用已启用的 DeepSeek */},[]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(()=>{const timer=window.setTimeout(()=>{if(initialText){void analyzeText(initialText);return;}void navigator.clipboard.readText().then((text)=>{if(!text.trim())return;setOcrText(text);void analyzeText(text)}).catch(()=>undefined)},0);return()=>window.clearTimeout(timer);/* 进入页面后自动读取剪贴板，失败时保留手动入口 */},[]); // eslint-disable-line react-hooks/exhaustive-deps
   const parseText=()=>analyzeText(ocrText);
   const chooseImage=async(file?:File)=>{if(!file)return;if(image)URL.revokeObjectURL(image);setImage(URL.createObjectURL(file));setImageBlob(file);const nextAttachmentId=uid();setAttachmentId(nextAttachmentId);setBusy(true);notify("正在设备本地提取文字，首次使用需加载 OCR 模型");try{const text=await recognizeImageLocally(file);setOcrText(text);await analyzeText(text,nextAttachmentId);}catch{notify("本地 OCR 识别失败，可粘贴文字继续");setBusy(false)}};
   const changeDraft=(changed:ReviewDraft)=>setBatch((current)=>current?{...current,drafts:current.drafts.map((draft)=>draft.id===changed.id?changed:draft)}:current);
