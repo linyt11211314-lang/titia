@@ -1,7 +1,7 @@
-const CACHE = "titia-shell-v7";
+const CACHE = "titia-shell-v8";
 const scopeUrl = new URL(self.registration.scope);
 const scoped = (path = "") => new URL(path, scopeUrl).pathname;
-const SHELL = [scoped(), scoped("manifest.webmanifest"), scoped("icon.png")];
+const SHELL = [scoped(), scoped("manifest.webmanifest"), scoped("icon.png"), scoped("icon-192.png"), scoped("icon-512.png"), scoped("apple-touch-icon.png")];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));

@@ -20,7 +20,7 @@ export async function buildLedgerWorkbook(data: AppData): Promise<Uint8Array> {
 export async function parseLedgerWorkbook(input: ArrayBuffer | Uint8Array, data: AppData) {
   const XLSX = await import("xlsx");
   const workbook = XLSX.read(input, { type: "array", cellDates: true });
-  const billSheetName = workbook.SheetNames.includes("账单") ? "账单" : workbook.SheetNames[0];
+  const billSheetName = workbook.SheetNames.includes("收支账单") ? "收支账单" : workbook.SheetNames.includes("账单") ? "账单" : workbook.SheetNames[0];
   const rows = billSheetName ? XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[billSheetName], { defval: "" }) : [];
   return { ...parseTransactionRows(rows, data), sheetNames: workbook.SheetNames };
 }

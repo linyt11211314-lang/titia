@@ -7,7 +7,7 @@ const categories: LedgerCategory[] = [{ id: "food", name: "餐饮", type: "expen
 describe("ledger management", () => {
   it("separates liabilities from assets", () => {
     const accounts: Account[] = [{ id: "cash", name: "现金", opening: 10, kind: "现金" }, { id: "card", name: "招商信用卡", opening: 0, kind: "信用卡" }];
-    expect(groupAccounts(accounts)).toEqual({ assets: [accounts[0]], liabilities: [accounts[1]] });
+    expect(groupAccounts(accounts)).toEqual({ assets: [accounts[0]], liabilities: [accounts[1]], loans: [] });
   });
 
   it("adds, renames and removes a category subtree", () => {

@@ -12,6 +12,16 @@ export function countdownStatus(value: string, now = new Date()) {
   return { valid: true as const, label: difference < 0 ? "已经过" : difference === 0 ? "就是今天" : "还有", days: Math.abs(difference), direction: difference < 0 ? "elapsed" as const : "remaining" as const };
 }
 
+export function countdownDetails(item: { date: string; repeat: boolean }, now = new Date()) {
+  const target=localDate(item.date);const current=new Date(now.getFullYear(),now.getMonth(),now.getDate(),12);
+  if(!target)return{mode:item.repeat?"expectation" as const:"footprint" as const,totalDays:0,years:0,days:0,nextDate:""};
+  if(!item.repeat){const totalDays=Math.max(0,Math.floor((current.getTime()-target.getTime())/dayMs));let years=current.getFullYear()-target.getFullYear();if(new Date(current.getFullYear(),target.getMonth(),target.getDate(),12)>current)years--;return{mode:"footprint" as const,totalDays,years:Math.max(0,years),days:Math.max(0,totalDays-Math.max(0,years)*365),nextDate:""};}
+  const month=target.getMonth(),day=target.getDate();let year=current.getFullYear(),next=new Date(year,month,day,12);
+  if(month===1&&day===29){while(!(year%4===0&&(year%100!==0||year%400===0))||next<current){year++;next=new Date(year,month,day,12);}}else if(next<current)next=new Date(year+1,month,day,12);
+  return{mode:"expectation" as const,totalDays:Math.ceil((next.getTime()-current.getTime())/dayMs),years:0,days:0,nextDate:iso(next)};
+}
+export const countdownMonths=(items:{date:string}[])=>[...new Set(items.map(item=>Number(item.date.slice(5,7))).filter(value=>value>=1&&value<=12))].sort((a,b)=>a-b);
+
 export type PeriodCalendarDay = { date: string; day: number; period: boolean; predicted: boolean; today: boolean };
 export function buildPeriodCalendar(year: number, month: number, periods: PeriodRecord[], now = new Date()): PeriodCalendarDay[] {
   const recorded = new Set<string>();

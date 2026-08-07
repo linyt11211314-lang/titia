@@ -25,4 +25,13 @@ describe("ledger spreadsheets", () => {
     expect(csv).toContain("日期,收入支出,金额,分类,账户,备注,来源,状态");
     expect(csv).toContain("2026-08-06,收入,99,工资,现金账户,奖金,manual,confirmed");
   });
+
+  it("imports the supplied 12-column template with both category levels", async () => {
+    const XLSX = await import("xlsx");
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([{ 日期:"2026-08-07", 时间:"09:30:00", 类型:"支出", 金额:35.8, 一级分类:"餐饮", 二级分类:"午餐", 账户:"现金账户", 备注:"麦当劳" }]), "收支账单");
+    const data = emptyData();
+    const result = await parseLedgerWorkbook(XLSX.write(workbook,{type:"array",bookType:"xlsx"}), data);
+    expect(result.transactions[0]).toMatchObject({ category:"餐饮", subcategory:"午餐", amount:35.8, note:"麦当劳" });
+  });
 });

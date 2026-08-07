@@ -56,7 +56,7 @@ export function dataSummary(data: AppData) {
 type ImportResult = { transactions: Transaction[]; summary: { total: number; income: number; expense: number; errors: number } };
 const aliases = {
   date: ["日期", "date", "交易日期", "时间"], amount: ["金额", "amount", "交易金额"], type: ["收入支出", "类型", "type", "收支类型"],
-  category: ["分类", "category"], account: ["账户", "account", "账号"], note: ["备注", "note", "说明"],
+  category: ["一级分类", "分类", "category"], subcategory: ["二级分类", "子分类", "subcategory"], account: ["账户", "account", "账号"], note: ["备注", "note", "说明"],
 };
 const field = (row: Record<string, unknown>, names: string[]) => names.map((name) => row[name]).find((value) => value !== undefined && value !== null && value !== "");
 const normalizeDate = (value: unknown) => {
@@ -83,7 +83,7 @@ export function parseTransactionRows(rows: Record<string, unknown>[], data: AppD
     const accountName = String(field(row, aliases.account) ?? "");
     const accountId = data.accounts.find((account) => account.name === accountName || account.id === accountName)?.id ?? data.accounts[0]?.id ?? "cash";
     const now = new Date().toISOString();
-    transactions.push({ id: uid(), type, amount, category: String(field(row, aliases.category) ?? "未分类"), accountId, date, note: String(field(row, aliases.note) ?? ""), source: "import", reviewStatus: "candidate", createdAt: now, updatedAt: now });
+    transactions.push({ id: uid(), type, amount, category: String(field(row, aliases.category) ?? "未分类"), subcategory: String(field(row, aliases.subcategory) ?? ""), accountId, date, note: String(field(row, aliases.note) ?? ""), source: "import", reviewStatus: "candidate", createdAt: now, updatedAt: now });
   }
   return { transactions, summary: { total: transactions.length, income: transactions.filter((item) => item.type === "income").length, expense: transactions.filter((item) => item.type === "expense").length, errors } };
 }

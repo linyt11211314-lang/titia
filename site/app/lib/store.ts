@@ -11,8 +11,8 @@ export type PeriodRecord = { id: Id; start: string; end?: string; note?: string 
 export type Pet = { id: Id; name: string; breed: string; birthday: string; sex: string };
 export type PetRecord = { id: Id; petId: Id; kind: "moment" | "weight" | "health"; date: string; value: string; note: string; image?: string };
 export type Diary = { id: Id; title: string; body: string; mood: string; date: string; image?: string };
-export type Relationship = { id: Id; type: "moment" | "review"; person: string; title: string; body: string; reflection: string; date: string };
-export type Account = { id: Id; name: string; opening: number; kind: string };
+export type Relationship = { id: Id; type: "moment" | "review"; person: string; title: string; body: string; reflection: string; date: string; images?: string[] };
+export type Account = { id: Id; name: string; opening: number; kind: string; default?: boolean };
 export type DuplicateCheck = { possible: boolean; similarity: number; matchedTransactionId?: Id };
 export type Transaction = { id: Id; type: "income" | "expense"; amount: number; category: string; subcategory?: string; merchant?: string; accountId: Id; date: string; note: string; source: "manual" | "ocr" | "notification" | "import"; sourceProvider?: string; externalId?: string; dedupeKey?: string; rawPayload?: string; confidence?: number; imageId?: Id; duplicateCheck?: DuplicateCheck; reviewStatus: "candidate" | "confirmed"; createdAt: string; updatedAt: string };
 export type TransactionAttachment = { id: Id; transactionId: Id; image: Blob; createdAt: string };
@@ -43,7 +43,7 @@ export type AppData = {
   categories: string[];
   ledgerCategories: LedgerCategory[];
   preferences: { sparkFab: SparkFabPreference };
-  userPreferences: { floatingButton: SparkFabPreference };
+  userPreferences: { floatingButton: SparkFabPreference; theme: "sky" | "peach" | "mint"; defaultAccountId: Id };
   backupMeta: { lastSpreadsheetExportAt: string | null };
   vaultMeta: VaultMeta;
   vault: VaultEntry[];
@@ -67,7 +67,7 @@ export function emptyData(): AppData {
     categories: transactionCategories,
     ledgerCategories: defaultLedgerCategories.map((category) => ({ ...category })),
     preferences: { sparkFab: { x: null, y: null, opacity: 0.8 } },
-    userPreferences: { floatingButton: { x: null, y: null, opacity: 0.8 } },
+    userPreferences: { floatingButton: { x: null, y: null, opacity: 0.8 }, theme: "sky", defaultAccountId: "cash" },
     backupMeta: { lastSpreadsheetExportAt: null },
     vaultMeta: null,
   };
@@ -106,7 +106,7 @@ export function normalizeAppData(input: unknown): AppData {
     preferences: {
       sparkFab: floatingButton,
     },
-    userPreferences: { floatingButton },
+    userPreferences: { floatingButton, theme: value.userPreferences?.theme ?? "sky", defaultAccountId: value.userPreferences?.defaultAccountId ?? value.accounts?.find(account=>account.default)?.id ?? defaults.accounts[0].id },
     backupMeta: { lastSpreadsheetExportAt: value.backupMeta?.lastSpreadsheetExportAt ?? null },
   };
 }
