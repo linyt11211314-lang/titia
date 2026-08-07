@@ -77,4 +77,10 @@ describe("mobile layout contracts", () => {
     expect(app).toContain("await analyzeText(text)");
     expect(app).toContain("ai-center-simple");
   });
+
+  it("shows smart review in a modal card", () => {
+    expect(app).toContain('className="ai-review-backdrop"');
+    expect(app).toContain('className="ai-review-card" role="dialog" aria-modal="true"');
+    expect(css).toContain(".ai-review-backdrop{position:fixed;inset:0;z-index:70");
+  });
 });
