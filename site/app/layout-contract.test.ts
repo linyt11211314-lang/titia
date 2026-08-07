@@ -39,4 +39,10 @@ describe("mobile layout contracts", () => {
     expect(css).toContain(".section-layout{grid-template-columns:56px minmax(0,1fr);gap:6px}");
     expect(css).toContain(".side-nav button{min-height:56px");
   });
+
+  it("keeps controls outside iPhone system bars and floats the rounded bottom navigation", () => {
+    expect(css).toContain(".dynamic-island-scroll{position:fixed;z-index:90;top:env(safe-area-inset-top)");
+    expect(css).toContain(".bottom-nav{bottom:max(10px,env(safe-area-inset-bottom));height:70px;width:calc(100% - 20px);border-radius:27px");
+    expect(css).toContain("padding-bottom:calc(92px + env(safe-area-inset-bottom))");
+  });
 });
