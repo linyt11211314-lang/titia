@@ -64,8 +64,8 @@ describe("mobile layout contracts", () => {
   });
 
   it("uses the supplied desktop icon and a distinct AI scan icon", () => {
-    expect(manifest).toContain("./titia-icon.jpg");
-    expect(indexHtml).toContain("titia-icon.jpg");
+    expect(manifest).toContain("./titia-icon.png");
+    expect(indexHtml).toContain("titia-icon.png?v=3");
     expect(app).toContain('<ScanLine size={19}/>');
   });
 
