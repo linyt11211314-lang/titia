@@ -50,10 +50,13 @@ describe("TitiaApp", () => {
     render(<TitiaApp />);
     await user.click(await screen.findByRole("button", { name: "小账" }));
 
-    for (const [section, overview] of [["账单", "本月账单"], ["资产", "资产总览"], ["分析", "分析概览"], ["分类", "分类统计"], ["导入导出", "数据管理概览"]]) {
+    for (const [section, overview] of [["账单", "本月账单"], ["资产", "资产总览"], ["分析", "分析概览"], ["分类", "分类统计"]]) {
       await user.click(screen.getByRole("button", { name: new RegExp(`${section}$`) }));
       expect(screen.getByText(overview)).toBeInTheDocument();
     }
+    await user.click(screen.getByRole("button", { name: /设置$/ }));
+    expect(screen.getByText("表格数据中心")).toBeInTheDocument();
+    expect(screen.getByText("DeepSeek API 配置")).toBeInTheDocument();
   });
 
   it("uses dedicated ledger and time icons and keeps AI recognition separate", async () => {
@@ -61,8 +64,9 @@ describe("TitiaApp", () => {
     render(<TitiaApp />);
     await user.click(await screen.findByRole("button", { name: "小账" }));
     expect(screen.getByRole("button", { name: /🧾.*账单/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /📥.*导入导出/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /✨.*AI识别/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /⚙️.*设置/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "AI识别剪贴板" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary")).not.toHaveTextContent("AI识别");
 
     await user.click(screen.getByRole("button", { name: "时光" }));
     expect(screen.getByRole("button", { name: /📖.*日记/ })).toBeInTheDocument();

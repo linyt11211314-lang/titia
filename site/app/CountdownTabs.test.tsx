@@ -25,6 +25,8 @@ describe("countdown view tabs", () => {
     await user.click(screen.getByRole("button", { name: "足迹" }));
     expect(screen.getByText("来到世界")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "时间轴" }));
-    expect(screen.getByText("人生足迹 · 人生")).toBeInTheDocument();
+    expect(screen.getByText("年度总览")).toBeInTheDocument();
+    expect(screen.queryByText("来到世界")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "时间轴" })).not.toBeInTheDocument();
   });
 });

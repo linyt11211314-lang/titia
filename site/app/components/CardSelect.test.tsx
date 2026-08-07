@@ -12,4 +12,15 @@ describe("CardSelect", () => {
     await user.click(screen.getByRole("button", { name: "选项B" }));
     expect(screen.getByLabelText("类型")).toHaveValue("b");
   });
+
+  it("chooses grouped options in primary and secondary card steps", async () => {
+    const user = userEvent.setup();
+    render(<CardSelect label="分类" name="category" options={[{ value: "breakfast", label: "早餐", group: "餐饮" }, { value: "metro", label: "地铁", group: "交通" }]} />);
+    await user.click(screen.getByRole("button", { name: /早餐/ }));
+    expect(screen.getByRole("button", { name: /餐饮/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "地铁" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /交通/ }));
+    await user.click(screen.getByRole("button", { name: "地铁" }));
+    expect(screen.getByLabelText("分类")).toHaveValue("metro");
+  });
 });

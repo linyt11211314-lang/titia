@@ -44,7 +44,7 @@ export type AppData = {
   categories: string[];
   ledgerCategories: LedgerCategory[];
   preferences: { sparkFab: SparkFabPreference };
-  userPreferences: { floatingButton: SparkFabPreference; theme: "sky" | "peach" | "mint"; defaultAccountId: Id; billApi: BillApiConfig };
+  userPreferences: { floatingButton: SparkFabPreference; theme: "sky" | "peach" | "mint" | "lavender" | "cream" | "night"; defaultAccountId: Id; billApi: BillApiConfig };
   backupMeta: { lastSpreadsheetExportAt: string | null };
   vaultMeta: VaultMeta;
   vault: VaultEntry[];
@@ -68,7 +68,7 @@ export function emptyData(): AppData {
     categories: transactionCategories,
     ledgerCategories: defaultLedgerCategories.map((category) => ({ ...category })),
     preferences: { sparkFab: { x: null, y: null, opacity: 0.8 } },
-    userPreferences: { floatingButton: { x: null, y: null, opacity: 0.8 }, theme: "sky", defaultAccountId: "cash", billApi: { enabled: false, endpoint: "", model: "", apiKey: "" } },
+    userPreferences: { floatingButton: { x: null, y: null, opacity: 0.8 }, theme: "sky", defaultAccountId: "cash", billApi: { enabled: false, endpoint: "https://api.deepseek.com/v1", model: "deepseek-chat", apiKey: "" } },
     backupMeta: { lastSpreadsheetExportAt: null },
     vaultMeta: null,
   };
@@ -107,7 +107,7 @@ export function normalizeAppData(input: unknown): AppData {
     preferences: {
       sparkFab: floatingButton,
     },
-    userPreferences: { floatingButton, theme: value.userPreferences?.theme ?? "sky", defaultAccountId: value.userPreferences?.defaultAccountId ?? value.accounts?.find(account=>account.default)?.id ?? defaults.accounts[0].id, billApi: { ...defaults.userPreferences.billApi, ...(value.userPreferences?.billApi ?? {}) } },
+    userPreferences: { floatingButton, theme: value.userPreferences?.theme ?? "sky", defaultAccountId: value.userPreferences?.defaultAccountId ?? value.accounts?.find(account=>account.default)?.id ?? defaults.accounts[0].id, billApi: { enabled:value.userPreferences?.billApi?.enabled??false,endpoint:value.userPreferences?.billApi?.endpoint||defaults.userPreferences.billApi.endpoint,model:value.userPreferences?.billApi?.model||defaults.userPreferences.billApi.model,apiKey:value.userPreferences?.billApi?.apiKey??"" } },
     backupMeta: { lastSpreadsheetExportAt: value.backupMeta?.lastSpreadsheetExportAt ?? null },
   };
 }
