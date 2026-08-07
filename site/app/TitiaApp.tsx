@@ -21,6 +21,7 @@ import { CardSelect } from "./components/CardSelect";
 import { formatCompactNumber } from "./lib/format";
 import { filterTransactionsByRange, spendingBreakdown, type AnalysisRange } from "./lib/ledgerAnalytics";
 import { scrollAppToTop } from "./lib/scrollTop";
+import { sparkTags } from "./lib/sparkNotes";
 
 type MainTab = "today" | "home" | "ledger" | "time" | "me";
 type FormKind = "todo" | "shopping" | "countdown" | "period" | "pet" | "petRecord" | "diary" | "relationship" | "transaction" | "account" | "budget" | "vault" | "spark" | null;
@@ -71,7 +72,7 @@ export function TitiaApp() {
 
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2200); };
   useEffect(() => { store.load().then((value) => { setData(value); setReady(true); }); }, []);
-  useEffect(()=>{if(!ready||!navigator.clipboard?.readText)return;void navigator.clipboard.readText().then((text)=>{if(!looksLikeBillClipboard(text))return;setStartupBillText(text);setTab("ledger");setLedgerSection("AI识别")}).catch(()=>undefined)},[ready]);
+  useEffect(()=>{if(!ready||!navigator.clipboard?.readText)return;const attempt=()=>navigator.clipboard.readText().then((text)=>{if(!looksLikeBillClipboard(text))return;setStartupBillText(text);setTab("ledger");setLedgerSection("AI识别")}).catch(()=>undefined);void attempt();window.addEventListener("pointerdown",attempt,{once:true,capture:true});return()=>window.removeEventListener("pointerdown",attempt,{capture:true})},[ready]);
   useEffect(() => { if (ready) store.save(data).catch(() => notify("保存失败，请检查存储空间")); }, [data, ready]);
   const lockVault=()=>{setVaultKey(null);setVaultVisible({});};
   const changeTab=(next:MainTab)=>{if(next!=="home")lockVault();setTab(next);resetAfterNavigation()};
@@ -283,7 +284,7 @@ function Me({data,setData,exportBackup,notify}:any){const [settingsOpen,setSetti
 function EntrySheet({kind,data,close,submit}:{kind:Exclude<FormKind,null>;data:AppData;close:()=>void;submit:(e:React.FormEvent<HTMLFormElement>)=>void}){const title:Record<string,string>={todo:"新增待办",shopping:"加入购物清单",countdown:"新增倒数日",period:"记录周期",pet:"创建宠物档案",petRecord:"添加宠物记录",diary:"写日记",relationship:"记录关系",transaction:"记一笔",account:"添加账户",budget:"设置预算",vault:"保存账号密码",spark:"灵光一闪"};return <div className="sheet-backdrop" onMouseDown={(e)=>e.target===e.currentTarget&&close()}><form className="sheet" onSubmit={submit}><header><div><small>保存到本机</small><h2>{title[kind]}</h2></div><button type="button" aria-label="关闭" onClick={close}><X/></button></header><div className="form-fields">{kind==="spark"&&<label><span>标题（可选）</span><input name="title"/></label>}<Fields kind={kind} data={data}/>{kind==="petRecord"&&<ImagePicker name="petImages" label="成长图片（可多选）"/>}{kind==="diary"&&<ImagePicker name="diaryImages" label="日记图片（可多选）"/>}{kind==="relationship"&&<ImagePicker name="relationshipImages" label="关系图片（可多选）"/>}{kind==="spark"&&<ImagePicker name="sparkImage" label="图片附件（可多选）"/>}</div><button className="primary submit" type="submit">保存</button></form></div>}
 function Fields({kind,data}:{kind:string;data:AppData}){
   const [transactionType,setTransactionType]=useState<"expense"|"income">("expense");
-  const firstBudgetCategory=data.ledgerCategories.find(item=>item.type==="expense"&&item.parentId)?.name??"";
+  const firstBudgetCategory=data.ledgerCategories.find(item=>item.type==="expense"&&!item.parentId)?.name??"";
   const input=(name:string,label:string,type="text",required=true)=><label><span>{label}</span><input name={name} type={type} step={type==="number"?"0.01":undefined} required={required} defaultValue={type==="date"?today():undefined}/></label>;
   if(kind==="todo"||kind==="shopping")return input("text",kind==="todo"?"要做什么":"想买什么");
   if(kind==="countdown")return <>{input("title","事件名称")}<CardSelect label="事件类型" name="eventMode" options={[{value:"footprint",label:"足迹 · 一次性事件"},{value:"expectation",label:"期待 · 年度循环"}]}/>{input("date","固定日期","date")}{input("category","自定义类型")}<input name="calendar" type="hidden" value="solar"/></>;
@@ -294,7 +295,7 @@ function Fields({kind,data}:{kind:string;data:AppData}){
   if(kind==="relationship")return <><CardSelect label="类型" name="type" options={[{value:"moment",label:"感动瞬间"},{value:"review",label:"矛盾复盘"}]}/>{input("person","关于谁")}{input("title","标题")}{input("date","日期","date")}<label><span>发生了什么</span><textarea name="body" required rows={4}/></label><label><span>我的感受与反思</span><textarea name="reflection" rows={3}/></label></>;
   if(kind==="transaction")return <><CardSelect label="类型" name="type" value={transactionType} onChange={value=>setTransactionType(value as "expense"|"income")} options={[{value:"expense",label:"支出"},{value:"income",label:"收入"}]}/>{input("amount","金额","number")}<CardSelect key={transactionType} label="分类" name="category" options={data.ledgerCategories.filter(item=>item.type===transactionType&&item.parentId).map(item=>({value:item.name,label:item.name,group:data.ledgerCategories.find(parent=>parent.id===item.parentId)?.name}))}/><CardSelect label="账户" name="accountId" defaultValue={data.userPreferences.defaultAccountId} options={data.accounts.map(account=>({value:account.id,label:account.name}))}/>{input("date","日期","date")}{input("note","备注","text",false)}</>;
   if(kind==="account")return <>{input("name","账户名称")}{input("opening","期初余额","number")}<CardSelect label="类型" name="kind" options={[...['储蓄卡','微信','支付宝','现金','资产自定义'].map(value=>({value,label:value,group:'资产'})),...['信用卡','花呗','白条','负债自定义'].map(value=>({value,label:value,group:'负债'})),...['借出','借入'].map(value=>({value,label:value,group:'借贷'}))]}/><label className="toggle"><input name="default" type="checkbox"/>设为默认交易账户</label></>;
-  if(kind==="budget")return <><CardSelect label="一级 / 二级分类" name="category" defaultValue={firstBudgetCategory} options={data.ledgerCategories.filter(item=>item.type==="expense"&&item.parentId).map(item=>({value:item.name,label:item.name,group:data.ledgerCategories.find(parent=>parent.id===item.parentId)?.name}))}/>{input("amount","预算金额","number")}<label><span>月份</span><input name="month" type="month" required defaultValue={today().slice(0,7)}/></label></>;
+  if(kind==="budget")return <><CardSelect label="一级分类" name="category" defaultValue={firstBudgetCategory} options={data.ledgerCategories.filter(item=>item.type==="expense"&&!item.parentId).map(item=>({value:item.name,label:item.name}))}/>{input("amount","预算金额","number")}<label><span>月份</span><input name="month" type="month" required defaultValue={today().slice(0,7)}/></label></>;
   if(kind==="vault")return <>{input("title","网站或应用")}{input("username","账号")}{input("password","密码","password")}</>;
-  return <><CardSelect label="一级分类 / 标签" name="tag" options={["备忘录","灵感","产品","生活"].map(value=>({value,label:value}))}/><label><span>一闪而过的念头</span><textarea name="body" required rows={5}/></label></>;
+  return <><CardSelect label="分类标签" name="tag" options={sparkTags.filter(value=>value!=="全部").map(value=>({value,label:value}))}/><label><span>一闪而过的念头</span><textarea name="body" required rows={5}/></label></>;
 }
