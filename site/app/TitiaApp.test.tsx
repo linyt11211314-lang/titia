@@ -55,6 +55,7 @@ describe("TitiaApp", () => {
       expect(screen.getByText(overview)).toBeInTheDocument();
     }
     await user.click(screen.getByRole("button", { name: /设置$/ }));
+    expect(screen.getByText("数据管理概览")).toBeInTheDocument();
     expect(screen.getByText("表格数据中心")).toBeInTheDocument();
     expect(screen.getByText("DeepSeek API 配置")).toBeInTheDocument();
   });

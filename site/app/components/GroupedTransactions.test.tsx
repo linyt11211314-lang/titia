@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GroupedTransactions } from "./GroupedTransactions";
 import type { Transaction } from "../lib/store";
+import { defaultLedgerCategories } from "../lib/category-config";
 
 afterEach(cleanup);
 const transactions: Transaction[] = [
@@ -44,5 +45,13 @@ describe("GroupedTransactions", () => {
     await user.click(screen.getByRole("button", { name: /修改分类/ }));
     await user.click(screen.getByRole("button", { name: "餐饮" }));
     expect(onBatchCategory).toHaveBeenCalledWith(["1"], "餐饮");
+  });
+
+  it("shows the normalized primary and secondary category instead of imported noise", async () => {
+    const user = userEvent.setup();
+    const income: Transaction = { id: "income", date: "2026-08-05T18:00:00", type: "income", amount: 111, category: "谢", subcategory: "转账", merchant: "收到微信转账", accountId: "wechat", note: "", source: "import", reviewStatus: "confirmed", createdAt: "", updatedAt: "" };
+    render(<GroupedTransactions transactions={[income]} accounts={[{ id: "wechat", name: "微信", opening: 0, kind: "微信" }]} categories={defaultLedgerCategories} onDelete={vi.fn()} onOpenAttachment={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: /8月5日/ }));
+    expect(screen.getByText("收入 / 转账收入 · 微信")).toBeInTheDocument();
   });
 });
