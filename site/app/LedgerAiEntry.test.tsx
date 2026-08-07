@@ -16,7 +16,7 @@ describe("ledger AI shortcut", () => {
     expect(screen.getByRole("button", { name: "AI识别剪贴板" })).toBeInTheDocument();
     expect(screen.getByRole("complementary")).not.toHaveTextContent("AI识别");
     await user.click(screen.getByRole("button", { name: "AI识别剪贴板" }));
-    expect((await screen.findByPlaceholderText(/Safari/) as HTMLTextAreaElement).value).toContain("麦当劳");
+    expect((await screen.findByRole("textbox", { name: "识别文字" }) as HTMLTextAreaElement).value).toContain("麦当劳");
     expect(screen.getAllByDisplayValue("麦当劳").length).toBeGreaterThan(0);
   });
 });

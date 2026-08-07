@@ -23,7 +23,7 @@ describe("mobile layout contracts", () => {
   });
 
   it("keeps the data overview banner on the merged settings page", () => {
-    expect(app).toContain('section!=="首页"&&<LedgerOverview');
+    expect(app).toContain('section!=="首页"&&section!=="AI识别"&&<LedgerOverview');
     expect(app).toContain('section==="设置"||section==="导入导出"');
   });
 
@@ -51,6 +51,7 @@ describe("mobile layout contracts", () => {
   it("restores the Me banner without changing other page data", () => {
     expect(app).toContain('className="card me-banner"');
     expect(app).toContain("Titia 时序");
+    expect(app).toContain('<time dateTime="2026-08-06">2026年8月6日</time>');
   });
 
   it("pins daily expense summaries and centers the analysis pie", () => {
@@ -66,5 +67,14 @@ describe("mobile layout contracts", () => {
     expect(manifest).toContain("./titia-icon.jpg");
     expect(indexHtml).toContain("titia-icon.jpg");
     expect(app).toContain('<ScanLine size={19}/>');
+  });
+
+  it("routes clipboard and OCR text through the enabled DeepSeek pipeline", () => {
+    expect(app).toContain("const analyzeText=async(text:string");
+    expect(app).toContain("await recognizeBillsWithApi(data.userPreferences.billApi,text)");
+    expect(app).toContain("void analyzeText(initialText)");
+    expect(app).toContain("await analyzeText(text,nextAttachmentId)");
+    expect(app).toContain("await analyzeText(text)");
+    expect(app).toContain("ai-center-simple");
   });
 });
