@@ -22,8 +22,8 @@ describe("keepPwaFresh", () => {
       }),
     };
 
-    await keepPwaFresh({ serviceWorker, base: "/titia/", reload, visibilityTarget });
-    expect(register).toHaveBeenCalledWith("/titia/sw.js", { scope: "/titia/", updateViaCache: "none" });
+    await keepPwaFresh({ serviceWorker, base: "/titia/", version: "24", reload, visibilityTarget });
+    expect(register).toHaveBeenCalledWith("/titia/sw.js?v=24", { scope: "/titia/", updateViaCache: "none" });
     expect(update).toHaveBeenCalledOnce();
     visibilityChange?.();
     expect(update).toHaveBeenCalledTimes(2);

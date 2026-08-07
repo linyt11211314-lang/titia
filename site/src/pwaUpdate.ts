@@ -8,13 +8,14 @@ type WorkerContainer = {
 export async function keepPwaFresh(options: {
   serviceWorker: WorkerContainer;
   base: string;
+  version?: string;
   reload: () => void;
   visibilityTarget?: {
     visibilityState: string;
     addEventListener: (name: "visibilitychange", listener: () => void) => void;
   };
 }) {
-  const { serviceWorker, base, reload, visibilityTarget } = options;
+  const { serviceWorker, base, reload, visibilityTarget, version } = options;
   const hadController = Boolean(serviceWorker.controller);
   let refreshing = false;
 
@@ -24,7 +25,7 @@ export async function keepPwaFresh(options: {
     reload();
   });
 
-  const registration = await serviceWorker.register(`${base}sw.js`, {
+  const registration = await serviceWorker.register(`${base}sw.js${version?`?v=${version}`:""}`, {
     scope: base,
     updateViaCache: "none",
   });

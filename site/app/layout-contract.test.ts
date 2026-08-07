@@ -103,6 +103,6 @@ describe("mobile layout contracts", () => {
     expect(app).toContain('window.addEventListener("pointerdown",attempt,{once:true,capture:true})');
     expect(app).toContain('sparkTags.filter(value=>value!=="全部")');
     expect(app).toContain('CardSelect label="一级分类" name="category"');
-    expect(css).toContain(".triple b.fixed-number{display:block;width:100%;font-size:13px!important");
+    expect(css).toContain(".triple b.fixed-number{display:block;width:100%;font-size:11px!important");
   });
 });

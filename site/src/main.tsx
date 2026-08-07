@@ -21,6 +21,7 @@ if ("serviceWorker" in navigator) {
     keepPwaFresh({
       serviceWorker: navigator.serviceWorker,
       base,
+      version: "24",
       reload: () => window.location.reload(),
       visibilityTarget: document,
     }).catch(() => undefined);
