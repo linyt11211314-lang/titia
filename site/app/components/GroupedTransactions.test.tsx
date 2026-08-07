@@ -41,7 +41,8 @@ describe("GroupedTransactions", () => {
     await user.click(screen.getByRole("button", { name: "批量管理" }));
     await user.click(screen.getByRole("button", { name: /8月6日/ }));
     await user.click(screen.getByRole("button", { name: "选择麦当劳" }));
-    await user.selectOptions(screen.getByLabelText("批量修改分类"), "餐饮");
+    await user.click(screen.getByRole("button", { name: /修改分类/ }));
+    await user.click(screen.getByRole("button", { name: "餐饮" }));
     expect(onBatchCategory).toHaveBeenCalledWith(["1"], "餐饮");
   });
 });

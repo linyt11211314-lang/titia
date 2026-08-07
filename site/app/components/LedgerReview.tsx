@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ReviewBatch, ReviewDraft } from "../lib/billParser";
 import type { Account, LedgerCategory } from "../lib/store";
+import { CardSelect } from "./CardSelect";
 
 type Props = {
   batch: ReviewBatch;
@@ -53,10 +54,10 @@ export function LedgerReview({ batch, accounts, categories, imageUrl, onChange, 
       {draft.possibleDuplicate && <p className="duplicate-warning">可能重复账单 · 相似度 {Math.round(draft.duplicateCheck.similarity * 100)}%（仍可手动选择添加）</p>}
       <div className="review-fields">
         <label>商户<input value={draft.merchant} onChange={(event) => update(draft.id, { merchant: event.target.value })} /></label>
-        <label>类型<select value={draft.type} onChange={(event) => update(draft.id, { type: event.target.value as ReviewDraft["type"] })}><option value="expense">支出</option><option value="income">收入</option></select></label>
+        <CardSelect label="类型" value={draft.type} onChange={(value) => update(draft.id, { type: value as ReviewDraft["type"] })} options={[{value:"expense",label:"支出"},{value:"income",label:"收入"}]}/>
         <label>分类<input value={draft.category} onChange={(event) => update(draft.id, { category: event.target.value, needsCategoryReview: false })} /></label>
-        <label>二级分类<select value={draft.subcategory} onChange={(event) => update(draft.id, { subcategory: event.target.value })}><option value="">未选择</option>{children(draft).map((category) => <option key={category.id}>{category.name}</option>)}{draft.subcategory && !children(draft).some((category) => category.name === draft.subcategory) && <option>{draft.subcategory}</option>}</select></label>
-        <label>账户<select value={draft.accountId} onChange={(event) => update(draft.id, { accountId: event.target.value })}>{accounts.map((account) => <option value={account.id} key={account.id}>{account.name}</option>)}</select></label>
+        <CardSelect label="二级分类" value={draft.subcategory} onChange={(value) => update(draft.id, { subcategory: value })} options={[{value:"",label:"未选择"},...children(draft).map((category)=>({value:category.name,label:category.name})),...(draft.subcategory&&!children(draft).some((category)=>category.name===draft.subcategory)?[{value:draft.subcategory,label:draft.subcategory}]:[])]}/>
+        <CardSelect label="账户" value={draft.accountId} onChange={(value) => update(draft.id, { accountId: value })} options={accounts.map(account=>({value:account.id,label:account.name}))}/>
         <label>时间<input type="datetime-local" value={draft.date.slice(0, 16)} onChange={(event) => update(draft.id, { date: event.target.value })} /></label>
       </div>
       <p className="confidence">可信度：{Math.round(draft.confidence * 100)}% · 来源：{draft.sourceProvider || "未知"}</p>

@@ -25,6 +25,7 @@ export type SparkNote = { id: Id; title: string; content: string; tag: string; i
 export type SparkMedia = { id: Id; sparkNoteId: Id; image: Blob; createdAt: string };
 export type LedgerCategory = { id: Id; name: string; type: "income" | "expense"; parentId?: Id };
 export type SparkFabPreference = { x: number | null; y: number | null; opacity: number };
+export type BillApiConfig = { enabled: boolean; endpoint: string; model: string; apiKey: string };
 
 export type AppData = {
   version: 3;
@@ -43,7 +44,7 @@ export type AppData = {
   categories: string[];
   ledgerCategories: LedgerCategory[];
   preferences: { sparkFab: SparkFabPreference };
-  userPreferences: { floatingButton: SparkFabPreference; theme: "sky" | "peach" | "mint"; defaultAccountId: Id };
+  userPreferences: { floatingButton: SparkFabPreference; theme: "sky" | "peach" | "mint"; defaultAccountId: Id; billApi: BillApiConfig };
   backupMeta: { lastSpreadsheetExportAt: string | null };
   vaultMeta: VaultMeta;
   vault: VaultEntry[];
@@ -67,7 +68,7 @@ export function emptyData(): AppData {
     categories: transactionCategories,
     ledgerCategories: defaultLedgerCategories.map((category) => ({ ...category })),
     preferences: { sparkFab: { x: null, y: null, opacity: 0.8 } },
-    userPreferences: { floatingButton: { x: null, y: null, opacity: 0.8 }, theme: "sky", defaultAccountId: "cash" },
+    userPreferences: { floatingButton: { x: null, y: null, opacity: 0.8 }, theme: "sky", defaultAccountId: "cash", billApi: { enabled: false, endpoint: "", model: "", apiKey: "" } },
     backupMeta: { lastSpreadsheetExportAt: null },
     vaultMeta: null,
   };
@@ -106,7 +107,7 @@ export function normalizeAppData(input: unknown): AppData {
     preferences: {
       sparkFab: floatingButton,
     },
-    userPreferences: { floatingButton, theme: value.userPreferences?.theme ?? "sky", defaultAccountId: value.userPreferences?.defaultAccountId ?? value.accounts?.find(account=>account.default)?.id ?? defaults.accounts[0].id },
+    userPreferences: { floatingButton, theme: value.userPreferences?.theme ?? "sky", defaultAccountId: value.userPreferences?.defaultAccountId ?? value.accounts?.find(account=>account.default)?.id ?? defaults.accounts[0].id, billApi: { ...defaults.userPreferences.billApi, ...(value.userPreferences?.billApi ?? {}) } },
     backupMeta: { lastSpreadsheetExportAt: value.backupMeta?.lastSpreadsheetExportAt ?? null },
   };
 }
