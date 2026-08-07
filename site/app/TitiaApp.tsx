@@ -20,6 +20,7 @@ import { ImagePicker } from "./components/ImagePicker";
 import { CardSelect } from "./components/CardSelect";
 import { formatCompactNumber } from "./lib/format";
 import { filterTransactionsByRange, spendingBreakdown, type AnalysisRange } from "./lib/ledgerAnalytics";
+import { scrollAppToTop } from "./lib/scrollTop";
 
 type MainTab = "today" | "home" | "ledger" | "time" | "me";
 type FormKind = "todo" | "shopping" | "countdown" | "period" | "pet" | "petRecord" | "diary" | "relationship" | "transaction" | "account" | "budget" | "vault" | "spark" | null;
@@ -135,6 +136,7 @@ export function TitiaApp() {
 
   if (!ready) return <main className="loading"><div className="cloud-logo">☁️</div><p>正在打开你的小世界…</p></main>;
   return <main className="app-shell" data-theme={data.userPreferences.theme}>
+    <button className="dynamic-island-scroll" aria-label="回到顶部" onClick={()=>scrollAppToTop()}/>
     <div className="sky-orb orb-one"/><div className="sky-orb orb-two"/>
     <div className="page-frame">{page}</div>
     {!sparkFullscreen&&<button className={`spark-fab ${sparkEditing ? "editing" : ""}`} aria-label="灵光一闪"
