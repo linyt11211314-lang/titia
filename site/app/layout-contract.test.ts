@@ -91,4 +91,11 @@ describe("mobile layout contracts", () => {
     expect(app).toContain('setLedgerSection("AI识别")');
     expect(app).toContain('initialText={startupBillText}');
   });
+
+  it("places Spark tags in one horizontal row above note cards", () => {
+    const spark = readFileSync(`${process.cwd()}/app/components/SparkFullscreen.tsx`, "utf8");
+    expect(spark).toContain('className="spark-tags spark-tags-inline"');
+    expect(spark).not.toContain('label="标签筛选"');
+    expect(css).toContain(".spark-tags-inline{display:flex;flex-wrap:nowrap");
+  });
 });
